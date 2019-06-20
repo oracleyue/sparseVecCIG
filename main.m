@@ -6,6 +6,7 @@
 
 
 clear all; close all;
+addpath('./extern');
 
 % init seed
 rng(2);
@@ -22,9 +23,9 @@ X = mvnrnd(zeros(T,d), Sigma);
 % sample covariance, normalized by T
 S = cov(X, 1);
 % lambda
-lambda = 0.0522;
+lambda = 0.2;
 
-% perform estimation
+% perform estimationr 3, K2, to be nonspar
 [OmegaHat, SigmaHat] = bcdpML(S, dL, lambda, 1e-3);
 
 % visualization
@@ -32,15 +33,17 @@ figure
 set(gcf,'color','white'); bt = 1;
 
 subplot(1,2,1)
-imgOm = mat2gray(abs(Omega));
-imshow(imgOm, 'InitialMagnification', 250);
-colormap(1-colormap);
+imOm = mat2gray(full(abs(Omega)));
+imbOm = addborder(2*imOm, 1, 1, 'outer');
+imshow(imbOm);
+colormap(1-colormap('gray'));
 title('Original $\mathbf{\Omega}$', ...
-      'FontSize',20, 'Interpreter','latex');
+      'FontSize', 15, 'Interpreter','latex');
 
 subplot(1,2,2)
-imgOmHat = mat2gray(abs(OmegaHat));
-imshow(imgOmHat, 'InitialMagnification',250);
-colormap(1-colormap);
-title('Estimator $\mathbf{\widehat{\Omega}}_{l_0}$', ...
-      'FontSize', 20, 'Interpreter','latex');
+imOmHat = mat2gray(abs(OmegaHat));
+imbOmHat = addborder(2*imOmHat, 1, 1, 'outer');
+imshow(imbOmHat);
+colormap(1-colormap('gray'));
+title('Estimation $\mathbf{\widehat{\Omega}}$', ...
+      'FontSize', 15, 'Interpreter','latex');

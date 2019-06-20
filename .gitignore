@@ -1,6 +1,11 @@
 .DS_Store
+GPATH
+GRTAGS
+GTAGS
+
 *-bak.m
-*.pdf
 test.m
 temp.m
 tmp.m
+
+*.pdf

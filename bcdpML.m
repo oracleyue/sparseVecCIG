@@ -49,7 +49,9 @@ for k = 1:p
     Omega(iIdx:jIdx, iIdx:jIdx) = invSk;
     fvalPrev = fvalPrev + log(det(Sk));
 end
-pPos = 1:p;  % track the index of the current p-block in the original dL
+% pPos relates dLprev to dL, which allows us to rearrange the solution
+% according to the original order of matrix blocks.
+pPos = 1:p;
 
 if debugFlag
     kDIter = -100:1:0;
@@ -64,7 +66,7 @@ while 1  % cycle in sequence over diagonal block:
          % (p-1)-block to p position, and p-block to 1st position
     kIter = kIter + 1;
     % update dLnext and permutation matrix to update Mo
-    [P, dLnext, pPos] = circPerm(dLprev, pPos);
+    [P, dLnext, pPosNext] = circPerm(dLprev, pPos);
     % P = [Papap Papa; Paap 0]
     aBi = d - dLprev(p) + 1;
     Papap = P(1:aBi-1, 1:aBi-1);
@@ -83,7 +85,7 @@ while 1  % cycle in sequence over diagonal block:
     Soa = S(1:end-dLnext(p), end-dLnext(p)+1:end);
     Sa = S(d-dLnext(p)+1:d, d-dLnext(p)+1:d);
     % retrieve inv(Sa);
-    Ta = invSa{pPos(p)};
+    Ta = invSa{pPosNext(p)};
 
     % permute Sigma
     Sigma = circshift(Sigma, [dLprev(p) dLprev(p)]);
@@ -97,7 +99,7 @@ while 1  % cycle in sequence over diagonal block:
 
     % Nexted cycle descent loop to update off-diagonal elements
     % update OmegAa, Ba
-    dl = dLnext;
+    dl = dLnext(1:end-1);
     for k = 1:p-1
         % partition of Mo
         Mia = Mo(1:dl(1), 1:dl(1));
@@ -166,8 +168,9 @@ while 1  % cycle in sequence over diagonal block:
 
     % backup current fval
     fvalPrev = fvalNext;
-    % backup dLnext, i.e. update dLprev
+    % backup dLnext, pPos
     dLprev = dLnext;
+    pPos = pPosNext;
 
     % debugging
     if debugFlag
@@ -178,6 +181,8 @@ while 1  % cycle in sequence over diagonal block:
         pause(1);
     end
 end
+
+dL, dLnext, dLprev, pPos, pPosNext
 
 Omega = retriOrder(Omega, dLprev, pPos);
 Sigma = retriOrder(Sigma, dLprev, pPos);
