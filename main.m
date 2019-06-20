@@ -26,7 +26,7 @@ S = cov(X, 1);
 lambda = .2;
 
 % perform estimationr 3, K2, to be nonspar
-[OmegaHat, SigmaHat] = bcdpML(S, dL, lambda, 1e-6);
+[OmegaHat, SigmaHat] = bcdpMLcg(S, dL, lambda, 1e-6);
 
 % visualization
 figure

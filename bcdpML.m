@@ -69,6 +69,7 @@ if debugFlag
     xlabel('Iterations');
     ylabel('Log abs. loss difference');
 end
+
 % Cycle descent over diagonal blocks (i.e. OmegAa)
 kIter = 0;  % iteration index
 while 1  % cycle in sequence over diagonal block:
@@ -118,9 +119,11 @@ while 1  % cycle in sequence over diagonal block:
         Smioa = Soa(dl(1)+1:end, :);
 
         % ----------------------------------------
-        % replace by CG later
+        % use naive inverse; to be replaced by CG
         BiaStar = - Mia \ (Mmia*Bmia*Sa + Sioa) * Ta;
         % ----------------------------------------
+
+        % update Bia, i.e. $B_{ia}^+$
         lambdAia = .5 * trace(Sa*BiaStar'*Mia*BiaStar);
         if lambdAia > lambda
             BiaPlus = BiaStar;

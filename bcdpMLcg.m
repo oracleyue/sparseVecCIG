@@ -70,6 +70,7 @@ if debugFlag
     xlabel('Iterations');
     ylabel('Log abs. loss difference');
 end
+
 % Cycle descent over diagonal blocks (i.e. OmegAa)
 kIter = 0;  % iteration index
 while 1  % cycle in sequence over diagonal block:
@@ -118,10 +119,12 @@ while 1  % cycle in sequence over diagonal block:
         Sioa = Soa(1:dl(1), :);
         Smioa = Soa(dl(1)+1:end, :);
 
-        % ----------------------------------------
-        % replace by CG later
-        BiaStar = - Mia \ (Mmia*Bmia*Sa + Sioa) * Ta;
-        % ----------------------------------------
+        % use naive inverse
+        % BiaStar = - Mia \ (Mmia*Bmia*Sa + Sioa) * Ta;
+        % use vector CG method
+        BiaStar = qpMatCG(-Mia, (Mmia*Bmia*Sa + Sioa) * Ta);
+
+        % update Bia, i.e. $B_{ia}^+$
         lambdAia = .5 * trace(Sa*BiaStar'*Mia*BiaStar);
         if lambdAia > lambda
             BiaPlus = BiaStar;
@@ -309,3 +312,48 @@ function fval =  evalObjFuncRe(OmegAo, OmegAa, Ba, invOmegAo, ...
     fval = fval + lambda * (zNormOmega + 2*zNormBa);
 
 end % END of evalObjFunc
+
+function X = qpMatCG(M, W, epsilon)
+% Conjugate gradient method (matrix version) for the matrix quadratic
+% programming:
+%    MAX{X} tr(X'MX) + 2 tr(X'W)
+% equivalently, solving MX = -W, where M are sysmetric positivie definite.
+% Moreover, in our case which maximizes tr(SX'MX) + 2 tr(X'W), it is
+% equivalent to solve MXS = -W, where S is symmetric and positive definite.
+
+    [m, m1] = size(M);
+    [m2, n] = size(W);
+    assert((m == m1) & (m == m2), ...
+           'The dimensions of M and W fail to match!')
+    if nargin < 3
+        epsilon = 1e-20;
+    end
+
+    % Initialization
+    R = W;
+    D = R;
+    X = zeros(m, n);
+    rho = trace(R'*R);
+
+    % CG update
+    for k = 0:1:m
+        % update X
+        alpha = rho / trace(D'*M*D);
+        % stop if possible
+        % [Warning]: should guarantee the decrease of loss function
+        if k == 0
+            alpha0rho0 = alpha*rho;
+        elseif abs(alpha*rho/alpha0rho0) < epsilon
+            break
+        end
+        X = X + alpha*D;  % X_k+1
+
+        % update variables for (k+1) iterate
+        R = R - alpha*M*D;
+        rho_p = trace(R'*R);
+        gamma = rho_p / rho;
+        D = R + gamma*D;
+        rho = rho_p;
+    end
+
+end % END of qpMatCG

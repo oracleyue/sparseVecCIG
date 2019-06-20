@@ -4,6 +4,7 @@ GRTAGS
 GTAGS
 
 *-bak.m
+test*.m
 test.m
 temp.m
 tmp.m
