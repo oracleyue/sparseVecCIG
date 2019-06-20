@@ -66,13 +66,10 @@ while 1  % cycle in sequence over diagonal block:
          % (p-1)-block to p position, and p-block to 1st position
     kIter = kIter + 1;
     % update dLnext and permutation matrix to update Mo
-    [P, dLnext, pPosNext] = circPerm(dLprev, pPos);
-    % P = [Papap Papa; Paap 0]
-    aBi = d - dLprev(p) + 1;
-    Papap = P(1:aBi-1, 1:aBi-1);
-    Papa = P(1:aBi-1, aBi:d);
-    Paap = P(aBi:d, 1:aBi-1);
-    Paa = P(aBi:d, aBi:d);
+    % [P, dLnext, pPos] = circPerm(dLprev, pPos);
+    dLnext = circshift(dLprev, 1);
+    pPos = circshift(pPos, 1);
+
 
     % update Omega (being permuted)
     Omega = circshift(Omega, [dLprev(p) dLprev(p)]);
@@ -85,7 +82,7 @@ while 1  % cycle in sequence over diagonal block:
     Soa = S(1:end-dLnext(p), end-dLnext(p)+1:end);
     Sa = S(d-dLnext(p)+1:d, d-dLnext(p)+1:d);
     % retrieve inv(Sa);
-    Ta = invSa{pPosNext(p)};
+    Ta = invSa{pPos(p)};
 
     % permute Sigma
     Sigma = circshift(Sigma, [dLprev(p) dLprev(p)]);
@@ -168,9 +165,8 @@ while 1  % cycle in sequence over diagonal block:
 
     % backup current fval
     fvalPrev = fvalNext;
-    % backup dLnext, pPos
+    % backup dLnext
     dLprev = dLnext;
-    pPos = pPosNext;
 
     % debugging
     if debugFlag
@@ -182,10 +178,8 @@ while 1  % cycle in sequence over diagonal block:
     end
 end
 
-dL, dLnext, dLprev, pPos, pPosNext
-
-Omega = retriOrder(Omega, dLprev, pPos);
-Sigma = retriOrder(Sigma, dLprev, pPos);
+Omega = retriOrder(Omega, dLnext, pPos);
+Sigma = retriOrder(Sigma, dLnext, pPos);
 
 end % END of bcdpML
 
@@ -240,7 +234,7 @@ function matNew = retriOrder(mat, dL, pPos)
     assert(p == length(pPos), ...
            'Error: the tracking pPos has a different length from dL!');
     idx1 = find(pPos == 1);
-    upleft = sum(dL(pPos(1:idx1-1)));
+    upleft = sum(dL(1:idx1-1));
     matNew = circshift(mat, [-upleft -upleft]);
 
 end % END of retriOrder
