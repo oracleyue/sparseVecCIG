@@ -1,6 +1,7 @@
-function [Omega, Sigma] = bcdpML(S, dL, lambda, epsilon)
-% BCDPML the block-wise cyclic decent method for group L0 penalised
-% log-likelihood maximation problems. It is to optimise:
+function [Omega, Sigma] = bcdpMLcg(S, dL, lambda, epsilon)
+% BCDPMLCG the block-wise cyclic decent method with conjugate gradient
+% embedded for group L0 penalised log-likelihood maximation problems. It
+% optimises:
 %
 %    MAX(Omega) -log det(Omega) + tr(S Omega) + lambda \sum{I(Omega_ij \neq 0)}
 %

@@ -23,10 +23,10 @@ X = mvnrnd(zeros(T,d), Sigma);
 % sample covariance, normalized by T
 S = cov(X, 1);
 % lambda
-lambda = 0.2;
+lambda = .2;
 
 % perform estimationr 3, K2, to be nonspar
-[OmegaHat, SigmaHat] = bcdpML(S, dL, lambda, 1e-3);
+[OmegaHat, SigmaHat] = bcdpML(S, dL, lambda, 1e-6);
 
 % visualization
 figure
