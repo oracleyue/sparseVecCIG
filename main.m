@@ -7,27 +7,29 @@
 
 clear all; close all;
 addpath('./extern');
+% addpath('./Goran');  % if Goran's implementations
 
 % init seed
 rng(2);
 
 % dimensions
 % dL = [2, 3, 5, 1, 3]*3;
-dL = [3, 2, 4, 2, 3]*3;
+dL = [3, 2, 4, 2, 3, 5, 6]*3;
 d = sum(dL);
 
 % data
-Omega = sparse(genOmega(dL));
+% Omega = sparse(genOmega(dL));
+Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 T = 10 * d;
 X = mvnrnd(zeros(T,d), Sigma);
 % sample covariance, normalized by T
 S = cov(X, 1);
 % lambda
-lambda = .3;
+lambda = .25;
 
 % perform estimationr 3, K2, to be nonspar
-[OmegaHat, SigmaHat] = bcdpMLcg(S, dL, lambda, 1e-6);
+[OmegaHat, SigmaHat] = bcdpMLcg(S, dL, lambda, 1e-20);
 
 %% visualization
 figure

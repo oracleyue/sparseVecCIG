@@ -76,7 +76,6 @@ while iter < numNZblk
     while 1
         iIdx = randi(n);
         jIdx = randi([iIdx n]);
-        [iIdx, jIdx]
         if iIdx < jIdx && isempty(intersect(idxList, [iIdx jIdx], 'rows'))
             idxList(iter+1, :) = [iIdx jIdx];
             iter = iter + 1;

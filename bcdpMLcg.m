@@ -155,7 +155,7 @@ while 1  % cycle in sequence over diagonal block:
     % dimension-reduced version; faster
     fvalNext = evalObjFuncRe(OmegAo, OmegAa, Ba, Mo, ...
                              So, Sa, Soa, lambda, dLnext);
-    if abs(fvalNext - fvalPrev) < epsilon
+    if abs(fvalNext - fvalPrev) < epsilon && kIter >= p
         if debugFlag
             fprintf('Block cyclic decent stops at the %d-th iteration,\n', ...
                     kIter);
@@ -174,7 +174,7 @@ while 1  % cycle in sequence over diagonal block:
         fdvalList(end) = log10(abs(fvalNext - fvalPrev));
         set(pltHfval, 'Xdata', kDIter, 'Ydata', fvalList);
         set(pltHfdval, 'Xdata', kDIter, 'Ydata', fdvalList);
-        pause(.5);
+        pause(.2);
     end
 
     % update Omega

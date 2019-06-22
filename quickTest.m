@@ -14,6 +14,5 @@
 
 %% Test random Omega generation
 % dL = [2, 3, 5, 1, 3, 4, 2, 1]*3;
-% % Omega = sparse(genOmega(dL));
 % Omega = sprandOm(dL, [.3, .8]);
 % imshowOm(Omega);
