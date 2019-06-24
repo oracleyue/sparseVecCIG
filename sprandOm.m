@@ -1,4 +1,4 @@
-function Omega = sprandOm(dL, density)
+function Omega = sprandOm(dL, density, plotEnable)
 % SPRANDOM generates a block-wise sparse inverse covariance matrix
 % (i.e. precision matrix). The partition is specified by a vector `dL`.
 
@@ -9,6 +9,7 @@ function Omega = sprandOm(dL, density)
 %               The density of sparsity of non-zero blocks and each
 %               blocks. If scalar, the same value for both; if vector,
 %               the 1st for block density and the 2nd for submatrix sparsity.
+%   plotEnable : Boolean (default: 0); set 1 to plot Omega as image.
 %
 % OUTPUT:
 %   Omega   :   precision matrix with dim (sum(dL) x sum(dL))
@@ -35,6 +36,9 @@ if nargin < 1
 elseif nargin == 1
     blkDensity = (n+2)/n^2;
     density = [blkDensity .8];
+end
+if nargin < 3
+    plotEnable = 0;
 end
 if isscalar(density)
     blkDensity = density;
@@ -107,4 +111,25 @@ end
 % Return in sparse data structure
 Omega = sparse(Omega);
 
-end  % END of sprandOm()
+% Plot if required
+if plotEnable
+    imshowOm(Omega);
+end
+
+end  % END of sprandOm
+
+
+% ================================================================
+% Local Functions
+% ================================================================
+function imshowOm(X)
+% IMSHOWM convert a matrix into grayscale image and show it.
+
+figure;
+set(gcf,'color','white'); borderWidth = 1;
+imOm = mat2gray(full(abs(X)));
+imbOm = addborder(2*imOm, borderWidth, 1, 'outer');
+imshow(imbOm, 'InitialMagnification','fit');
+colormap(1-colormap('gray'));
+
+end  % END of imshowM

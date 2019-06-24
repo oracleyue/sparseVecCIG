@@ -35,4 +35,4 @@ for i = 1:p-1
 end
 val = val*2;
 
-end % END of penaltyBIC
+end % END of l0norm

@@ -1,4 +1,4 @@
-function imshowOm(X, borderWidth)
+function imshowOm(X)
 % IMSHOWM convert a matrix into grayscale image and show it.
 %
 % Inputs:
@@ -16,4 +16,4 @@ imbOm = addborder(2*imOm, borderWidth, 1, 'outer');
 imshow(imbOm, 'InitialMagnification','fit');
 colormap(1-colormap('gray'));
 
-% END of imshowM()
+% END of imshowM

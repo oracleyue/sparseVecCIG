@@ -1,26 +1,26 @@
-% The script computes the BIC criterion to determine lambda, the
-% regularization parameter.
+function lambda = calcLambda(S, dL, lambdaRange, type, epsilon)
+% CALCLAMBDA computes the BIC or AIC criterion to determine lambda,
+% i.e. the regularization parameter for l0-penalized ML.
+%
+% INPUT:
+%   S      :   (d x d) sample covariance matrix, normalised by T
+%   dL     :   (p x 1) vector of positive integers, and Sum(dL) = d
+%   lambda :   positive real number, regularisation parameter
+%   epsilon:   positive value close to 0; tolerance to stop iteration
+%   (The above arguments inherit from "bcdpMLcg.m")
+%   type   :   string (default: 'BIC'); set 'AIC' or 'BIC'
+%
+% OUTPUT:
+%   lambda :   positive real value, the first one that minimises BIC values.
 
 % Copyright [2019] <oracleyue>
 % Last modified on 24 Jun 2019
 
 
-clear all; close all;
-
-% Search paths
-addpath('./extern'); % external libraries
-addpath('./Goran');  % using Goran's
+% search paths
 addpath('./tools');
 
-% Init seed
-rng(2);
-
-% Data
-% load('./Goran/Omega_Goran.mat');
-p = 6;
-dL = randi(9, p, 1)*3;
-Omega = sprandOm(dL, [.3 .8]);
-Sigma = inv(Omega);
+% data
 d = sum(dL);
 T = 10 * d;
 X = mvnrnd(zeros(T,d), Sigma);

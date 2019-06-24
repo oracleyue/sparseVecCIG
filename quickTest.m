@@ -16,3 +16,7 @@
 % dL = [2, 3, 5, 1, 3, 4, 2, 1]*3;
 % Omega = sprandOm(dL, [.3, .8]);
 % imshowOm(Omega);
+
+% dL = [2, 3, 5, 1, 3]*3;
+% Omega = sparse(genOmega(dL));
+% save('./Goran/Omega_Goran.mat', 'Omega', 'dL')

@@ -9,17 +9,15 @@ clear all; close all;
 
 % search paths
 addpath('./extern');
- % using Goran's implementations
-addpath('./Goran');
+addpath('./Goran');  % if using Goran's algorithm
 
 % init seed
 rng(2);
 
 % data
-dL = [2, 3, 5, 1, 3]*3;
-Omega = sparse(genOmega(dL));
-% dL = [3, 2, 4, 2, 3, 5, 6]*3;
-% Omega = sprandOm(dL, [.3 .8]);
+% load('./Goran/Omega_Goran.mat');
+dL = [3, 2, 4, 2, 3, 5, 6]*3;
+Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 T = 10 * d;
