@@ -9,7 +9,7 @@ function [Omega, Sigma] = bcdpMLcg(S, dL, lambda, epsilon)
 %   S      :   (d x d) sample covariance matrix, normalised by T
 %   dL     :   (p x 1) vector of positive integers, and Sum(dL) = d
 %   lambda :   positive real number, regularisation parameter
-%   epsilon:   positive value close to 0; numerical precision
+%   epsilon:   positive value close to 0; tolerance to stop iteration
 %
 % OUTPUT:
 %   Omega  :   inverse covariance matrix, i.e. inv(Sigma)
@@ -24,14 +24,14 @@ function [Omega, Sigma] = bcdpMLcg(S, dL, lambda, epsilon)
 
 
 % Flags
-debugFlag = 1;
+debugFlag = 0;
 
 % Preparations
 d = size(S, 1);
 p = length(dL);
 assert(sum(dL) == d, 'Sample covariance S and partition dL fail to match!');
 if nargin < 4
-    epsilon = 1e-6;  % convergence precision
+    epsilon = 1e-12;  % convergence precision
 end
 
 % Initialization
