@@ -1,68 +1,119 @@
-function lambda = calcLambda(S, dL, lambdaRange, type, epsilon)
+function [lambda, infoVec, eTime] = calcLambda(S, dL, N, lambdaList, infoType, algType)
 % CALCLAMBDA computes the BIC or AIC criterion to determine lambda,
 % i.e. the regularization parameter for l0-penalized ML.
 %
 % INPUT:
-%   S      :   (d x d) sample covariance matrix, normalised by T
+%   S      :   (d x d) sample covariance matrix, normalised by N
 %   dL     :   (p x 1) vector of positive integers, and Sum(dL) = d
-%   lambda :   positive real number, regularisation parameter
-%   epsilon:   positive value close to 0; tolerance to stop iteration
-%   (The above arguments inherit from "bcdpMLcg.m")
-%   type   :   string (default: 'BIC'); set 'AIC' or 'BIC'
+%   N      :   length of data
+%   lambdaList :   positive real vector of lambdas
+%   infoType   :   string (default: 'BIC'); set 'AIC' or 'BIC'
+%   algType :  string; "zyue" or "goran"
 %
 % OUTPUT:
 %   lambda :   positive real value, the first one that minimises BIC values.
+%   infoVec:   values of AIC or BIC for lambdaList
+%   eTime  :   real vector of time costs for each lambda
 
 % Copyright [2019] <oracleyue>
 % Last modified on 24 Jun 2019
 
 
-% search paths
-addpath('./tools');
+% parse arguments
+if nargin < 5
+    infoType = 'BIC';
+end
+assert(any(strcmp({'AIC', 'BIC'}, infoType)), ...
+       'Argument "infoType" must to "AIC" or "BIC".');
+if nargin < 6
+    algType = 'zyue';
+end
+assert(any(strcmp({'zyue', 'goran'}, algType)), ...
+       'Argument "algType" must to "zyue" or "goran".');
+
+% options
+debugFlag = 0;
 
 % data
+p = length(dL);
 d = sum(dL);
-T = 10 * d;
-X = mvnrnd(zeros(T,d), Sigma);
-% sample covariance, normalized by T
-S = cov(X, 1);
+numL = length(lambdaList);
 
-% Generate lamba's range (use log scale)
-numL = 40;
-lambdas = logspace(-2, 0, numL);
-% Initialize criterion values
-KL = zeros(numL, 1);
-BIC = zeros(numL, 1);
-AIC = zeros(numL, 1);
+% initialize criterion values
+infoVec = zeros(numL, 1);
 
-% Perform estimation and compute criterion values
-fprintf('Computing KL and BIC values:\n')
-algTimer = tic;
+% perform estimation and compute criterion values
+if debugFlag
+    fprintf('Computing KL and BIC values:\n')
+end
+eTime = zeros(numL, 1);
 for k = 1:numL
-    lambda = lambdas(k);
-    [OmegaHat, SigmaHat] = bcdpMLcg(S, dL, lambda, 1e-12);
+    algTimer = tic;
+    lambda = lambdaList(k);
+    switch algType
+      case 'zyue'
+        [OmegaHat, ~] = bcdSpML(S, dL, lambda, 1e-12);
+      case 'goran'
+        [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 10, 1e-3, 0);
+    end
 
     % refer to /Goran Marjanovic & Victor Solo. ICASSP, 2018/
-    KL(k) = trace(Sigma*OmegaHat) - log(det(Sigma*OmegaHat)) - d;
-    BIC(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
-             log(T)/T * l0norm(OmegaHat, dL);
-    AIC(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
-             1/T * l0norm(OmegaHat, dL);
+    switch infoType
+      case 'BIC'
+        infoVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
+            log(N)/N * l0norm(OmegaHat, dL);
+      case 'AIC'
+        infoVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
+            1/N * l0norm(OmegaHat, dL);
+    end
 
-    fprintf('    %2d-th iterate: lambda=%.4f, BIC=%.4f \n', ...
-            k, lambda, BIC(k));
+    if debugFlag
+        fprintf('    %2d-th iterate: lambda=%.4f, %s=%.4f \n', ...
+                k, lambda, infoType, infoVec(k));
+    end
+    eTime(k) = toc(algTimer);
 end
-toc(algTimer)
-fprintf('End.\n')
+if debugFlag
+    fprintf('End.\n')
+    fprintf('Total elapsed time: %f s\n', eTime);
+end
+
+% find first lambda that minimises the criterion
+[~, idx] = min(infoVec);
+lambda = lambdaList(idx(1));
 
 % visualization
-figure
-subplot(1,3,1)
-semilogx(lambdas, KL, 'o-')
-xlabel('lambdas'); ylabel('KL')
-subplot(1,3,2)
-semilogx(lambdas, BIC, 'o-')
-xlabel('lambdas'); ylabel('BIC')
-subplot(1,3,3)
-semilogx(lambdas, AIC, 'o-')
-xlabel('lambdas'); ylabel('AIC')
+if debugFlag
+    figure
+    semilogx(lambdaList, infoVec, 'o-')
+    xlabel('Lambda'); ylabel('Information Criterion')
+end
+
+end % END of calcLambda
+
+
+% ================================================================
+% Local Functions
+% ================================================================
+function val = l0norm(Omega, dL)
+% PENALTYBIC computes the penalty value used in BIC cirterion for
+% block-wise sparse inverse covariance matrix.
+%     val = \sum_{i \neq j} I(Omega_{ij} \neq 0) d_i d_j
+
+p = length(dL);
+d = sum(dL);
+
+val = 0;
+for i = 1:p-1
+    for j = i+1:p
+        di = dL(i); dj = dL(j);
+        iIdx = sum(dL(1:i-1))+1:sum(dL(1:i));
+        jIdx = sum(dL(1:j-1))+1:sum(dL(1:j));
+        if sum(sum(Omega(iIdx, jIdx)))
+            val = val + di*dj;
+        end
+    end
+end
+val = val*2;
+
+end % END of l0norm

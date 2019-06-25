@@ -1,5 +1,5 @@
-function [Omega, Sigma] = bcdpMLcg(S, dL, lambda, epsilon)
-% BCDPMLCG the block-wise cyclic decent method with conjugate gradient
+function [Omega, Sigma] = bcdSpML(S, dL, lambda, epsilon)
+% BCDSPML the block-wise cyclic decent method with conjugate gradient
 % embedded for group L0 penalised log-likelihood maximation problems. It
 % optimises:
 %

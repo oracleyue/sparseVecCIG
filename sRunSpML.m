@@ -16,7 +16,8 @@ rng(2);
 
 % data
 % load('./Goran/Omega_Goran.mat');
-dL = [3, 2, 4, 2, 3, 5, 6]*3;
+p = 6;
+dL = randi(9, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
@@ -25,7 +26,7 @@ X = mvnrnd(zeros(T,d), Sigma);
 % sample covariance, normalized by T
 S = cov(X, 1);
 % lambda
-lambda = .5;
+lambda = .4924;  % by calcLambda.m
 % choose algorithm
 algName = 'zyue';
 
@@ -34,7 +35,7 @@ algTimer = tic;
 switch algName
   case 'zyue'
     % CG-embeded solver
-    [OmegaHat, SigmaHat] = bcdpMLcg(S, dL, lambda, 1e-12);
+    [OmegaHat, SigmaHat] = bcdSpML(S, dL, lambda, 1e-12);
   case 'goran'
     % Goran's solver
     [F, Time, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 10, 1e-3, 0);
