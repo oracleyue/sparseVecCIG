@@ -37,7 +37,10 @@ end
 numL = 40;
 lambdaList = logspace(-2, 0, numL);
 
-% init var
+% init saving variables
+lambdaBest = zeros(2, length(pList));     % 1: 'zyue'; 2: 'goran'
+infoCrit = zeros(2*numL, length(pList));  % 1:numL: 'zyue';
+                                          % numL+1:2*numL: 'goran'
 eTimeMatrix = zeros(2*numL, length(pList));
 eTime = zeros(2, length(pList));
 
@@ -57,17 +60,21 @@ for k = 1:length(pList)
     fprintf('  [%2d]: #blocks=%2d, dim=%3d\n', k, p, d);
 
     % ML with different lambdas
-    [lambdaZ, BICsZ, eTimeZ] = calcLambda(S, dL, N, lambdaList, 'BIC', 'zyue');
+    [lambdaZ, ICsZ, eTimeZ] = calcLambda(S, dL, N, lambdaList, 'AIC', 'zyue');
     fprintf('        CG   : %.6fs \n', sum(eTimeZ));
-    [lambdaG, BICsG, eTimeG] = calcLambda(S, dL, N, lambdaList, 'BIC', 'goran');
+    [lambdaG, ICsG, eTimeG] = calcLambda(S, dL, N, lambdaList, 'AIC', 'goran');
     fprintf('        Goran: %.6fs \n', sum(eTimeG));
 
+    lambdaBest(:,k) = [lambdaZ; lambdaG];
+    infoCrit(1:numL,k) = ICsZ;
+    infoCrit(numL+1:2*numL,k) = ICsG;
     eTimeMatrix(1:numL, k) = eTimeZ;
     eTimeMatrix(numL+1:2*numL, k) = eTimeG;
     eTime(1, k) = eTimeZ(find(lambdaList == lambdaZ));
     eTime(2, k) = eTimeG(find(lambdaList == lambdaG));
 end
 fprintf('End.\n')
+save('benchmarkMulti_results.mat');
 
 %% visualization
 fig_hl = figure;
@@ -137,4 +144,4 @@ set(leg_hl, 'string', legstr(1:4))
 set(fig_hl,'Units','Inches', 'Position', [3.5417 4.3021 8.7396 3.0625]);
 pos = get(fig_hl,'Position');
 set(fig_hl,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)])
-print(fig_hl, 'benchmarkMulti_result', '-dpdf', '-r0')
+print(fig_hl, 'benchmarkMulti_results', '-dpdf', '-r0')

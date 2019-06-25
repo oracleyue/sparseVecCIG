@@ -2,6 +2,8 @@
 GPATH
 GRTAGS
 GTAGS
+*~
+#*
 
 *-bak.m
 test*.m
