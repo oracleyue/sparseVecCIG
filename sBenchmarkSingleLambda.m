@@ -62,12 +62,14 @@ fig_hl = figure;
 subplot(1,2,1)
 semilogy(pList, eTime(1, :), 'o--', pList, eTime(2, :), '^--');
 legend('bcdpMLcg', 'Goran', 'location', 'northwest')
+xlim([min(pList), max(pList)]);
 xlabel('#blocks on diagonal');
 ylabel('CPU time (s)')
 
 subplot(1,2,2)
 semilogy(dList, eTime(1, :), 'o--', dList, eTime(2, :), '^--');
 legend('bcdpMLcg', 'Goran', 'location', 'northwest')
+xlim([min(dList), max(dList)]);
 xlabel('dimensions');
 ylabel('CPU time (s)')
 
