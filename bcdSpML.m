@@ -155,7 +155,7 @@ while 1  % cycle in sequence over diagonal block:
     % dimension-reduced version; faster
     fvalNext = evalObjFuncRe(OmegAo, OmegAa, Ba, Mo, ...
                              So, Sa, Soa, lambda, dLnext);
-    if abs(fvalNext - fvalPrev) < epsilon && kIter >= p
+    if abs(fvalNext - fvalPrev) < epsilon && kIter >= p  % ~mod(kIter, p)
         if debugFlag
             fprintf('Block cyclic decent stops at the %d-th iteration,\n', ...
                     kIter);

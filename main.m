@@ -19,7 +19,7 @@ rng(2);
 
 % data
 % load('./Goran/Omega_Goran.mat');
-p = 8;
+p = 5;
 dL = randi(5, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
@@ -32,11 +32,11 @@ S = cov(X, 1);
 if autoLambdaFlag
     lambdaList = logspace(-2, 0, 40);
     bicTimer = tic;
-    lambda = calcLambda(S, dL, N, lambdaList, 'AIC');
+    lambda = calcLambda(S, dL, N, lambdaList, 'BIC', 1);
     toc(bicTimer)
 else
     % fix a lambda
-    lambda = .2;
+    lambda = .1068;
 end
 % choose algorithm
 algName = 'zyue';

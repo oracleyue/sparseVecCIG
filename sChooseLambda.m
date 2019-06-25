@@ -13,8 +13,8 @@ rng(2);
 % load('./Goran/Omega_Goran.mat');
 
 % random data generation
-p = 6;
-dL = randi(9, p, 1)*3;
+p = 8;
+dL = randi(5, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
@@ -35,4 +35,4 @@ fig_hl = figure;
 semilogx(lambdas, BICs, 'o-')
 hold on
 plot(lambda, BICs(find(lambdas==lambda)), '*', 'MarkerSize', 12);
-xlabel('Lambda'); ylabel('BIC')
+xlabel('Lambda'); ylabel('Info. Criterion')

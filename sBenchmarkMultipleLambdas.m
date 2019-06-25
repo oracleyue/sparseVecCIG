@@ -22,7 +22,7 @@ addpath('./tools');
 rng(2);
 
 %% Benchmark for different dimensions
-pList = 4:1:8;
+pList = 4:2:20;
 dList = zeros(size(pList));
 dLCell = cell(size(pList));
 for k = 1:length(pList)

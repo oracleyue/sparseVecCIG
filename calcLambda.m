@@ -1,19 +1,21 @@
-function [lambda, infoVec, eTime] = calcLambda(S, dL, N, lambdaList, infoType, algType)
+function [lambda, infoVec, eTime] = calcLambda(S, dL, N, lambdaList, ...
+                                               infoType, algType, plotEnable)
 % CALCLAMBDA computes the BIC or AIC criterion to determine lambda,
 % i.e. the regularization parameter for l0-penalized ML.
 %
 % INPUT:
-%   S      :   (d x d) sample covariance matrix, normalised by N
-%   dL     :   (p x 1) vector of positive integers, and Sum(dL) = d
-%   N      :   length of data
+%   S          :   (d x d) sample covariance matrix, normalised by N
+%   dL         :   (p x 1) vector of positive integers, and Sum(dL) = d
+%   N          :   length of data
 %   lambdaList :   positive real vector of lambdas
 %   infoType   :   string (default: 'BIC'); set 'AIC' or 'BIC'
-%   algType :  string; "zyue" or "goran"
+%   algType    :   string; "zyue" or "goran"
+%   plotEnable :   Boolean; set 1 to plot BIC curves (default: 0)
 %
 % OUTPUT:
-%   lambda :   positive real value, the first one that minimises BIC values.
-%   infoVec:   values of AIC or BIC for lambdaList
-%   eTime  :   real vector of time costs for each lambda
+%   lambda     :   positive real value, the first one that minimises BIC values.
+%   infoVec    :   values of AIC or BIC for lambdaList
+%   eTime      :   real vector of time costs for each lambda
 
 % Copyright [2019] <oracleyue>
 % Last modified on 24 Jun 2019
@@ -25,13 +27,23 @@ if nargin < 5
 end
 assert(any(strcmp({'AIC', 'BIC'}, infoType)), ...
        'Argument "infoType" must to "AIC" or "BIC".');
+if nargin == 6   % syntax sugar: use 6th as algType or plotEnable
+    switch class(algType)
+      case 'char'
+        plotEnable = 0;
+      case 'double'
+        plotEnable = algType;
+        algType = 'zyue';
+    end
+end
 if nargin < 6
     algType = 'zyue';
+    plotEnable = 0;
 end
 assert(any(strcmp({'zyue', 'goran'}, algType)), ...
        'Argument "algType" must to "zyue" or "goran".');
 
-% options
+% debug flags
 debugFlag = 0;
 
 % data
@@ -83,7 +95,7 @@ end
 lambda = lambdaList(idx(1));
 
 % visualization
-if debugFlag
+if plotEnable | debugFlag
     figure
     semilogx(lambdaList, infoVec, 'o-')
     xlabel('Lambda'); ylabel('Information Criterion')
