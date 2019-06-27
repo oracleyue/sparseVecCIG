@@ -16,10 +16,9 @@ clear all; close all;
 % Search paths
 addpath('./extern'); % external libraries
 addpath('./Goran');  % using Goran's
-addpath('./tools');
 
 % Init seed
-rng(2);
+rng(2)
 
 %% Benchmark for different dimensions
 pList = 4:2:20;
@@ -49,6 +48,7 @@ for k = 1:length(pList)
     % data
     p = pList(k);
     dL = dLCell{k};
+    rng(2)
     Omega = sprandOm(dL, [.3 .8]);
     Sigma = inv(Omega);
     d = sum(dL); dList(k) = d;
@@ -59,10 +59,13 @@ for k = 1:length(pList)
 
     fprintf('  [%2d]: #blocks=%2d, dim=%3d\n', k, p, d);
 
+    tolOpt = [1e-3, 10];
     % ML with different lambdas
-    [lambdaZ, ICsZ, eTimeZ] = calcLambda(S, dL, N, lambdaList, 'AIC', 'zyue');
+    [lambdaZ, ~, ICsZ, eTimeZ] = calcLambda(S, dL, N, lambdaList, ...
+                                            'BIC', 'zyue', tolOpt);
     fprintf('        CG   : %.6fs \n', sum(eTimeZ));
-    [lambdaG, ICsG, eTimeG] = calcLambda(S, dL, N, lambdaList, 'AIC', 'goran');
+    [lambdaG, ~, ICsG, eTimeG] = calcLambda(S, dL, N, lambdaList, ...
+                                            'BIC', 'goran', tolOpt);
     fprintf('        Goran: %.6fs \n', sum(eTimeG));
 
     lambdaBest(:,k) = [lambdaZ; lambdaG];
@@ -85,58 +88,64 @@ grayG = cmap(2,:);
 % grayZ = gmap(30, :); grayG = grayZ;
 alpha = .08;
 
-meanTimeZ = mean(log10(eTimeMatrix(1:numL, :)));
-stdTimeZ = std(log10(eTimeMatrix(1:numL, :)));
-meanTimeG = mean(log10(eTimeMatrix(numL+1:2*numL, :)));
-stdTimeG = std(log10(eTimeMatrix(numL+1:2*numL, :)));
+datTimeZ = eTimeMatrix(1:numL, :);
+datTimeG = eTimeMatrix(numL+1:2*numL, :);
+meanTimeZ = mean(datTimeZ);
+stdTimeZ  = std(datTimeZ);
+meanTimeG = mean(datTimeG);
+stdTimeG  = std(datTimeG);
 
 subplot(1,2,1)
-plot(pList, meanTimeZ, 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
+plot(pList, log10(meanTimeZ), 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
 hold on
-plot(pList, meanTimeG, 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
+plot(pList, log10(meanTimeG), 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
 plot(pList, log10(eTime(1,:)), '*', 'Color', cmap(1,:));
 plot(pList, log10(eTime(2,:)), '*', 'Color', cmap(2,:));
 xlim([min(pList), max(pList)]);
 xlabel('#blocks on diagonal');
-ylabel('Time in log scale (s)')
+ylabel('CPU time in log10 scale (s)');
+% ylabel('CPU time (s)');
 
 polyX = [pList fliplr(pList)];
 polyYZ = [meanTimeZ-stdTimeZ fliplr(meanTimeZ+stdTimeZ)];
-patchZ = fill(polyX, polyYZ, grayZ);
+log10polyYZ = log10(polyYZ);
+ylim([-3 3]); log10polyYZ(1) = -3; % since polyYZ is log10 of a negative value
+patchZ = fill(polyX, log10polyYZ, grayZ);
 set(patchZ, 'edgecolor', 'none');
 set(patchZ, 'FaceAlpha', alpha);
 polyYG = [meanTimeG-stdTimeG fliplr(meanTimeG+stdTimeG)];
-patchG = fill(polyX, polyYG, grayG);
+log10polyYG = log10(polyYG);
+patchG = fill(polyX, log10polyYG, grayG);
 set(patchG, 'edgecolor', 'none');
 set(patchG, 'FaceAlpha', alpha);
 
 leg_hl = legend('MLCG', 'Goran', 'MLCG (best)', ...
-                'Goran (best)', 'location', 'northwest')
+                'Goran (best)', 'location', 'northwest');
 legstr = get(leg_hl, 'string');
 set(leg_hl, 'string', legstr(1:4))
 
 subplot(1,2,2)
-plot(dList, meanTimeZ, 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
+plot(dList, log10(meanTimeZ), 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
 hold on
-plot(dList, meanTimeG, 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
+plot(dList, log10(meanTimeG), 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
 plot(dList, log10(eTime(1,:)), '*', 'Color', cmap(1,:));
 plot(dList, log10(eTime(2,:)), '*', 'Color', cmap(2,:));
 xlim([min(dList), max(dList)]);
 xlabel('dimensions');
-ylabel('Time in log scale (s)')
+ylabel('CPU time in log10 scale (s)');
+% ylabel('CPU time (s)');
 
 polyX = [dList fliplr(dList)];
-polyYZ = [meanTimeZ-stdTimeZ fliplr(meanTimeZ+stdTimeZ)];
-patchZ = fill(polyX, polyYZ, grayZ);
+ylim([-3 3]);
+patchZ = fill(polyX, log10polyYZ, grayZ);
 set(patchZ, 'edgecolor', 'none');
 set(patchZ, 'FaceAlpha', alpha);
-polyYG = [meanTimeG-stdTimeG fliplr(meanTimeG+stdTimeG)];
-patchG = fill(polyX, polyYG, grayG);
+patchG = fill(polyX, log10polyYG, grayG);
 set(patchG, 'edgecolor', 'none');
 set(patchG, 'FaceAlpha', alpha);
 
 leg_hl = legend('MLCG', 'Goran', 'MLCG (best)', ...
-                'Goran (best)', 'location', 'northwest')
+                'Goran (best)', 'location', 'northwest');
 legstr = get(leg_hl, 'string');
 set(leg_hl, 'string', legstr(1:4))
 

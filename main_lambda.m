@@ -14,9 +14,9 @@ addpath('./Goran');  % if using Goran's algorithm
 % init seed
 rng(2);
 
-% data
+% Data
 % load('./Goran/Omega_Goran.mat');
-p = 100;
+p = 10;
 dL = randi(5, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
@@ -25,23 +25,25 @@ N = 10 * d;
 X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
-% setup
-lambda = .06;
-algName = 'goran';
+% Setup
+lambdaList = logspace(-2, 0, 40);  % range of lambdas
+algType = 'zyue';    % choose algorithm
+icType = 'BIC';      % choose information criterion
+tolOpt = [1e-4, 20]; % [epsilon iterMax]: precision and max #iterations
 
-% estimation
+% Estimation
 algTimer = tic;
-switch algName
-  case 'zyue'
-    % CG-embeded solver
-    [OmegaHat, ~] = bcdSpML(S, dL, lambda, [1e-4 20]);
-  case 'goran'
-    % Goran's solver
-    [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 20, 1e-4, 0);
-end
+[lambda, OmegaHat, vecIC, ~] = calcLambda(S, dL, N, lambdaList, ...
+                                          icType, algType, tolOpt);
 toc(algTimer)
 
-% visualization
+% Visualization
+% information criterion curves
+figure
+semilogx(lambdaList, vecIC, 'o-')
+xlabel('lambda'); ylabel(icType)
+
+% matrix plot of Omega and its estimation
 figure
 set(gcf,'color','white');
 subplot(1,2,1)

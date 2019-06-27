@@ -1,5 +1,5 @@
-function [lambda, infoVec, eTime] = calcLambda(S, dL, N, lambdaList, ...
-                                               infoType, algType, plotEnable)
+function [lambda, Omega, icVec, eTime] = calcLambda(S, dL, N, lambdaList, ...
+                                                    icType, algType, tolOptions)
 % CALCLAMBDA computes the BIC or AIC criterion to determine lambda,
 % i.e. the regularization parameter for l0-penalized ML.
 %
@@ -8,13 +8,18 @@ function [lambda, infoVec, eTime] = calcLambda(S, dL, N, lambdaList, ...
 %   dL         :   (p x 1) vector of positive integers, and Sum(dL) = d
 %   N          :   length of data
 %   lambdaList :   positive real vector of lambdas
-%   infoType   :   string (default: 'BIC'); set 'AIC' or 'BIC'
+%   tolOptions :   [epsilon iterMax]
+%    - epsilon :   0 < epsilon < 1; tolerance to stop iteration
+%    - iterMax :   integer > 1; force to stop after iterMax iterations
+%   (the above arguments inherit from "bcdSpML.m")
+%   icType     :   string (default: 'BIC'); set 'AIC' or 'BIC'
 %   algType    :   string; "zyue" or "goran"
-%   plotEnable :   Boolean; set 1 to plot BIC curves (default: 0)
 %
 % OUTPUT:
-%   lambda     :   positive real value, the first one that minimises BIC values.
-%   infoVec    :   values of AIC or BIC for lambdaList
+%   lambda     :   scalar, the best that minimises BIC values (if
+% 				   multiple, choose the first)
+%   Omega      :   PSD matrix, an estimation using the best lambda
+%   icVec      :   values of AIC or BIC for lambdaList
 %   eTime      :   real vector of time costs for each lambda
 
 % Copyright [2019] <oracleyue>
@@ -23,25 +28,18 @@ function [lambda, infoVec, eTime] = calcLambda(S, dL, N, lambdaList, ...
 
 % parse arguments
 if nargin < 5
-    infoType = 'BIC';
+    icType = 'BIC';
 end
-assert(any(strcmp({'AIC', 'BIC'}, infoType)), ...
-       'Argument "infoType" must to "AIC" or "BIC".');
-if nargin == 6   % syntax sugar: use 6th as algType or plotEnable
-    switch class(algType)
-      case 'char'
-        plotEnable = 0;
-      case 'double'
-        plotEnable = algType;
-        algType = 'zyue';
-    end
-end
+assert(any(strcmp({'AIC', 'BIC'}, icType)), ...
+       'Argument "icType" must to "AIC" or "BIC".');
 if nargin < 6
     algType = 'zyue';
-    plotEnable = 0;
 end
 assert(any(strcmp({'zyue', 'goran'}, algType)), ...
        'Argument "algType" must to "zyue" or "goran".');
+if strcmp(algType, 'goran')
+    addpath('./Goran');
+end
 
 % debug flags
 debugFlag = 0;
@@ -52,7 +50,8 @@ d = sum(dL);
 numL = length(lambdaList);
 
 % initialize criterion values
-infoVec = zeros(numL, 1);
+icVec = zeros(numL, 1);
+estOmega = cell(numL, 1);
 
 % perform estimation and compute criterion values
 if debugFlag
@@ -64,24 +63,26 @@ for k = 1:numL
     lambda = lambdaList(k);
     switch algType
       case 'zyue'
-        [OmegaHat, ~] = bcdSpML(S, dL, lambda, 1e-12);
+        [OmegaHat, ~] = bcdSpML(S, dL, lambda, tolOptions);
       case 'goran'
-        [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 10, 1e-3, 0);
+        [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, ...
+                                     tolOptions(2), tolOptions(1), 0);
     end
+    estOmega{k} = OmegaHat;
 
     % refer to /Goran Marjanovic & Victor Solo. ICASSP, 2018/
-    switch infoType
+    switch icType
       case 'BIC'
-        infoVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
-            log(N)/N * l0norm(OmegaHat, dL);
+        icVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
+            log(N)/N/2 * l0norm(OmegaHat, dL);
       case 'AIC'
-        infoVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
+        icVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
             1/N * l0norm(OmegaHat, dL);
     end
 
     if debugFlag
         fprintf('    %2d-th iterate: lambda=%.4f, %s=%.4f \n', ...
-                k, lambda, infoType, infoVec(k));
+                k, lambda, icType, icVec(k));
     end
     eTime(k) = toc(algTimer);
 end
@@ -91,13 +92,14 @@ if debugFlag
 end
 
 % find first lambda that minimises the criterion
-[~, idx] = min(infoVec);
+[~, idx] = min(icVec);
 lambda = lambdaList(idx(1));
+Omega = estOmega{idx(1)};
 
 % visualization
-if plotEnable | debugFlag
+if debugFlag
     figure
-    semilogx(lambdaList, infoVec, 'o-')
+    semilogx(lambdaList, icVec, 'o-')
     xlabel('Lambda'); ylabel('Information Criterion')
 end
 

@@ -13,3 +13,8 @@ tmp.m
 
 *.pdf
 *.mat
+
+archived/
+results/
+
+todo.org

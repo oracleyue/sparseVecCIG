@@ -1,4 +1,4 @@
-function [Omega, Sigma] = bcdSpML(S, dL, lambda, epsilon)
+function [Omega, Sigma] = bcdSpML(S, dL, lambda, tolOptions)
 % BCDSPML the block-wise cyclic decent method with conjugate gradient
 % embedded for group L0 penalised log-likelihood maximation problems. It
 % optimises:
@@ -6,10 +6,12 @@ function [Omega, Sigma] = bcdSpML(S, dL, lambda, epsilon)
 %    MAX(Omega) -log det(Omega) + tr(S Omega) + lambda \sum{I(Omega_ij \neq 0)}
 %
 % INPUT:
-%   S      :   (d x d) sample covariance matrix, normalised by T
-%   dL     :   (p x 1) vector of positive integers, and Sum(dL) = d
-%   lambda :   positive real number, regularisation parameter
-%   epsilon:   positive value close to 0; tolerance to stop iteration
+%   S          :   (d x d) sample covariance matrix, normalised by T
+%   dL         :   (p x 1) vector of positive integers, and Sum(dL) = d
+%   lambda     :   positive real number, regularisation parameter
+%   tolOptions :   [epsilon iterMax] or epsilon or maxIter
+%    - epsilon :   0 < epsilon < 1; tolerance to stop iteration
+%    - iterMax :   integer > 1; force to stop after iterMax iterations
 %
 % OUTPUT:
 %   Omega  :   inverse covariance matrix, i.e. inv(Sigma)
@@ -31,7 +33,22 @@ d = size(S, 1);
 p = length(dL);
 assert(sum(dL) == d, 'Sample covariance S and partition dL fail to match!');
 if nargin < 4
-    epsilon = 1e-12;  % convergence precision
+    epsilon = 1e-4;  % convergence precision
+    iterMax = 50;
+end
+if nargin == 4
+    if isscalar(tolOptions)
+        if tolOptions < 1
+            epsilon = tolOptions;
+            iterMax = 50;
+        else
+            iterMax = tolOptions;
+            epsilon = 10e-4;
+        end
+    else
+        epsilon = tolOptions(1);
+        iterMax = tolOptions(2);
+    end
 end
 
 % Initialization
@@ -68,7 +85,8 @@ if debugFlag
     subplot(1,2,2)
     pltHfdval = plot(kDIter, fdvalList, '*-');  % plH-: plot handler
     xlabel('Iterations');
-    ylabel('Log abs. loss difference');
+    % ylabel('Log abs. loss difference');
+    ylabel('Log rel. loss difference');
 end
 
 % Cycle descent over diagonal blocks (i.e. OmegAa)
@@ -150,18 +168,26 @@ while 1  % cycle in sequence over diagonal block:
     Ga = -Ka * Sa;
     SigmAo = Mo + Ka*Sa*Ka';
 
-    % stop criterion
+    % stopping criterion
     % fvalNext = evalObjFunc(Omega, S, lambda, dLnext);
     % dimension-reduced version; faster
-    fvalNext = evalObjFuncRe(OmegAo, OmegAa, Ba, Mo, ...
+    fvalNext = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
                              So, Sa, Soa, lambda, dLnext);
-    if abs(fvalNext - fvalPrev) < epsilon && kIter >= p  % ~mod(kIter, p)
+    % if abs(fvalPrev - fvalNext) < epsilon && kIter > p
+    if abs(fvalPrev - fvalNext)/abs(fvalPrev) < epsilon && kIter > p
         if debugFlag
             fprintf('Block cyclic decent stops at the %d-th iteration,\n', ...
                     kIter);
-            fprintf('with difference of loss values: %d\n', ...
-                    abs(fvalNext - fvalPrev));
+            % fprintf('with difference of loss values: %d\n', ...
+            %         abs(fvalNext - fvalPrev));
+            fprintf('with relative difference of loss values: %d\n', ...
+                    abs(fvalPrev - fvalNext)/abs(fvalPrev));
         end
+        break
+    end
+    if kIter > iterMax * p
+        warning(['Convergence is very slow, and ' ...
+                 'you may set lambda too small.'])
         break
     end
 
@@ -171,7 +197,8 @@ while 1  % cycle in sequence over diagonal block:
         fvalList = circshift(fvalList, -1);
         fvalList(end) = fvalPrev;
         fdvalList = circshift(fdvalList, -1);
-        fdvalList(end) = log10(abs(fvalNext - fvalPrev));
+        % fdvalList(end) = log10(abs(fvalNext - fvalPrev));
+        fdvalList(end) = log10(abs(fvalPrev - fvalNext)/abs(fvalPrev));
         set(pltHfval, 'Xdata', kDIter, 'Ydata', fvalList);
         set(pltHfdval, 'Xdata', kDIter, 'Ydata', fdvalList);
         pause(.2);
@@ -258,9 +285,9 @@ end % END of retriOrder
 
 function fval = evalObjFunc(Omega, S, lambda, dL)
 % Evaluate the cost function.
-% Faster version: see "evalObjFuncRe()"
+% Faster version: see "evalLossRe()"
 
-    fval = -log(det(Omega)) + trace(S * Omega);
+    fval = -logdet(Omega) + trace(S * Omega);
 
     p = length(dL);
     d = sum(dL);
@@ -281,11 +308,11 @@ function fval = evalObjFunc(Omega, S, lambda, dL)
 
 end % END of evalObjFunc
 
-function fval =  evalObjFuncRe(OmegAo, OmegAa, Ba, invOmegAo, ...
+function fval =  evalLossRe(OmegAo, OmegAa, Ba, invOmegAo, ...
                                So, Sa, Soa, lambda, dL)
 % Evaluate the cost function via its dimensionally reducted form.
 
-    fval = -log(det(OmegAo)) - log(det(OmegAa - Ba'*invOmegAo*Ba)) + ...
+    fval = -logdet(OmegAo) - logdet(OmegAa - Ba'*invOmegAo*Ba) + ...
            trace(So*OmegAo) + 2*trace(Soa'*Ba) + trace(Sa*OmegAa);
 
     p = length(dL);
@@ -312,6 +339,14 @@ function fval =  evalObjFuncRe(OmegAo, OmegAa, Ba, invOmegAo, ...
     fval = fval + lambda * (zNormOmega + 2*zNormBa);
 
 end % END of evalObjFunc
+
+function val = logdet(X)
+% Reliably compute log(det(X)), where X must be positive definte matrix.
+
+    L = chol(X);
+    val = 2*sum(log(diag(L)));
+
+end % END of logdet
 
 function X = qpMatCG(M, W, epsilon)
 % Conjugate gradient method (matrix version) for the matrix quadratic

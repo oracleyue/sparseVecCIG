@@ -117,19 +117,3 @@ if plotEnable
 end
 
 end  % END of sprandOm
-
-
-% ================================================================
-% Local Functions
-% ================================================================
-function imshowOm(X)
-% IMSHOWM convert a matrix into grayscale image and show it.
-
-figure;
-set(gcf,'color','white'); borderWidth = 1;
-imOm = mat2gray(full(abs(X)));
-imbOm = addborder(2*imOm, borderWidth, 1, 'outer');
-imshow(imbOm, 'InitialMagnification','fit');
-colormap(1-colormap('gray'));
-
-end  % END of imshowM
