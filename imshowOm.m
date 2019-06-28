@@ -14,7 +14,7 @@ end
 
 set(gcf,'color','white');
 imOm = mat2gray(full(abs(X)));
-imbOm = addborder(2*imOm, bWidth, 1, 'outer');
+imbOm = addBorder(2*imOm, bWidth, 1);
 imshow(imbOm, 'InitialMagnification','fit');
 colormap(1-colormap('gray'));
 

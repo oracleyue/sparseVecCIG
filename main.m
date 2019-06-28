@@ -8,17 +8,18 @@
 clear all; close all;
 
 % search paths
-addpath('./extern');
 addpath('./Goran');  % if using Goran's algorithm
 
-% init seed
+% init
 rng(2);
 
 % data
 % load('./Goran/Omega_Goran.mat');
-p = 100;
-dL = randi(5, p, 1)*3;
-Omega = sprandOm(dL, [.3 .8]);
+load('./failure_data.mat');
+% load('~/Workspace/data/data_p500d4449.mat');
+% p = 100;
+% dL = randi(5, p, 1)*3;
+% Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 N = 10 * d;
@@ -26,15 +27,15 @@ X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda = .06;
-algName = 'goran';
+lambda = .0001;
+algName = 'zyue';
 
 % estimation
 algTimer = tic;
 switch algName
   case 'zyue'
     % CG-embeded solver
-    [OmegaHat, ~] = bcdSpML(S, dL, lambda, [1e-4 20]);
+    [OmegaHat, ~, optStatus] = bcdSpML(S, dL, lambda, [1e-6 20]);
   case 'goran'
     % Goran's solver
     [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 20, 1e-4, 0);

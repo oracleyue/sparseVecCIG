@@ -8,7 +8,6 @@
 clear all; close all;
 
 % search paths
-addpath('./extern');
 addpath('./Goran');  % if using Goran's algorithm
 
 % init seed
@@ -16,9 +15,10 @@ rng(2);
 
 % Data
 % load('./Goran/Omega_Goran.mat');
-p = 10;
-dL = randi(5, p, 1)*3;
-Omega = sprandOm(dL, [.3 .8]);
+load('./failure_data.mat');
+% p = 10;
+% dL = randi(5, p, 1)*3;
+% Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 N = 10 * d;

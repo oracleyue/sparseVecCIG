@@ -1,4 +1,4 @@
-function [lambda, Omega, icVec, eTime] = calcLambda(S, dL, N, lambdaList, ...
+function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
                                                     icType, algType, tolOptions)
 % CALCLAMBDA computes the BIC or AIC criterion to determine lambda,
 % i.e. the regularization parameter for l0-penalized ML.
@@ -19,7 +19,7 @@ function [lambda, Omega, icVec, eTime] = calcLambda(S, dL, N, lambdaList, ...
 %   lambda     :   scalar, the best that minimises BIC values (if
 % 				   multiple, choose the first)
 %   Omega      :   PSD matrix, an estimation using the best lambda
-%   icVec      :   values of AIC or BIC for lambdaList
+%   vecIC      :   values of AIC or BIC for lambdaList
 %   eTime      :   real vector of time costs for each lambda
 
 % Copyright [2019] <oracleyue>
@@ -50,7 +50,7 @@ d = sum(dL);
 numL = length(lambdaList);
 
 % initialize criterion values
-icVec = zeros(numL, 1);
+vecIC = zeros(numL, 1);
 estOmega = cell(numL, 1);
 
 % perform estimation and compute criterion values
@@ -73,16 +73,16 @@ for k = 1:numL
     % refer to /Goran Marjanovic & Victor Solo. ICASSP, 2018/
     switch icType
       case 'BIC'
-        icVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
+        vecIC(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
             log(N)/N/2 * l0norm(OmegaHat, dL);
       case 'AIC'
-        icVec(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
+        vecIC(k) = trace(S*OmegaHat) - log(det(OmegaHat)) + ...
             1/N * l0norm(OmegaHat, dL);
     end
 
     if debugFlag
         fprintf('    %2d-th iterate: lambda=%.4f, %s=%.4f \n', ...
-                k, lambda, icType, icVec(k));
+                k, lambda, icType, vecIC(k));
     end
     eTime(k) = toc(algTimer);
 end
@@ -92,14 +92,14 @@ if debugFlag
 end
 
 % find first lambda that minimises the criterion
-[~, idx] = min(icVec);
+[~, idx] = min(vecIC);
 lambda = lambdaList(idx(1));
 Omega = estOmega{idx(1)};
 
 % visualization
 if debugFlag
     figure
-    semilogx(lambdaList, icVec, 'o-')
+    semilogx(lambdaList, vecIC, 'o-')
     xlabel('Lambda'); ylabel('Information Criterion')
 end
 

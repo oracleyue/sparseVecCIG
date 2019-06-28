@@ -72,21 +72,26 @@ for k=1:length(dL)
     end
 end
 
-% Choose nonzero off-diagonal blocks
+% Randomly choose nonzero off-diagonal blocks
 numNZblk = round((round(n^2*blkDensity) - n)/2);
 iter = 0;
 idxList = zeros(numNZblk, 2);
-while iter < numNZblk
-    while 1
-        iIdx = randi(n);
-        jIdx = randi([iIdx n]);
-        if iIdx < jIdx && isempty(intersect(idxList, [iIdx jIdx], 'rows'))
-            idxList(iter+1, :) = [iIdx jIdx];
-            iter = iter + 1;
-            break
-        end
-    end
-end
+% % This method is too slow when n is particularly large
+% while iter < numNZblk
+%     while 1
+%         iIdx = randi(n);
+%         jIdx = randi([iIdx n]);
+%         if iIdx < jIdx && isempty(intersect(idxList, [iIdx jIdx], 'rows'))
+%             idxList(iter+1, :) = [iIdx jIdx];
+%             iter = iter + 1;
+%             break
+%         end
+%     end
+% end
+% alternative way: fast!
+[iVec, jVec] = flatUpperMatrix(n);
+selected = randperm(length(iVec), numNZblk);
+idxList = [iVec(selected)' jVec(selected)'];
 
 % Set nonzero off-diagonal blocks
 for k = 1:numNZblk
@@ -104,8 +109,10 @@ for k = 1:numNZblk
 end
 
 % Force positiveness
-while min(eig(Omega)) <= 0
-    Omega = Omega + eye(d);
+minEigOm = min(eig(Omega));
+while minEigOm <= 0
+    Omega = Omega + (abs(minEigOm) + 1e-4)*eye(d);
+    minEigOm = min(eig(Omega));
 end
 
 % Return in sparse data structure
@@ -117,3 +124,24 @@ if plotEnable
 end
 
 end  % END of sprandOm
+
+% ================================================================
+% Local Functions
+% ================================================================
+
+function [xVec, yVec] = flatUpperMatrix(N)
+% It builds up two vectors, which [x,y] is an index specify an element
+% in the upper triangle part of a square matrix. For example,
+%    N = 4, then xVec = [1, 1, 1, 2, 2, 3],
+%                yVec = [2, 3, 4, 3, 4, 4].
+
+    xVec = zeros(1, N*(N-1)/2);
+    yVec = zeros(1, N*(N-1)/2);
+    pos = 1;
+    for k = 1:N
+        xVec(pos:pos-1+(N-k)) = k;
+        yVec(pos:pos-1+(N-k)) = k+1:N;
+        pos = pos+(N-k);
+    end
+
+end  % END of flatUpperMatrix

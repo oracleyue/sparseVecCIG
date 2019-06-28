@@ -45,7 +45,7 @@ for k = 1:length(pList)
 
     fprintf('  [%2d]: #blocks=%2d, dim=%3d\n', k, p, d);
     aTimer = tic;
-    [OmegaHat, SigmaHat] = bcdSpMLcg(S, dL, lambda, [1e-3 10]);
+    [OmegaHat, ~] = bcdSpML(S, dL, lambda, [1e-3 10]);
     cgTime = toc(aTimer);
     fprintf('        CG   : %.6fs \n', cgTime);
     agTimer = tic;

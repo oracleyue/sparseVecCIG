@@ -1,4 +1,4 @@
-function [Omega, Sigma] = bcdSpML(S, dL, lambda, tolOptions)
+function [Omega, Sigma, optStatus] = bcdSpML(S, dL, lambda, tolOptions)
 % BCDSPML the block-wise cyclic decent method with conjugate gradient
 % embedded for group L0 penalised log-likelihood maximation problems. It
 % optimises:
@@ -16,6 +16,7 @@ function [Omega, Sigma] = bcdSpML(S, dL, lambda, tolOptions)
 % OUTPUT:
 %   Omega  :   inverse covariance matrix, i.e. inv(Sigma)
 %   Sigma  :   covariance matrix of the Gaussian r.v. x(t)
+%   optStatus  : structure; information about optimization processes
 
 % Copyright (c) 2019, Zuogong YUE
 % Author: Zuogong YUE <oracleyue@gmail.com>
@@ -56,7 +57,10 @@ dLprev = dL;
 Sigma = zeros(d,d);
 Omega = zeros(d,d);
 invSa = cell(p,1);
-fvalPrev = d;  % init value of objective function
+fval = d;  % init value of objective function
+zNorm = 0; % block-wise zero norm of Omega (no diagonal)
+zNormMultiP = zNorm; % block-wise zNorm of Omega when rem(kIter, p) == 0
+zNormFull = p^2 - p; % block-wise zero norm of full Omega matrix
 for k = 1:p
     iIdx = sum(dL(1:k-1)) + 1;
     jIdx = sum(dL(1:k));
@@ -65,7 +69,7 @@ for k = 1:p
     invSa{k} = invSk;
     Sigma(iIdx:jIdx, iIdx:jIdx) = Sk;
     Omega(iIdx:jIdx, iIdx:jIdx) = invSk;
-    fvalPrev = fvalPrev + log(det(Sk));
+    fval = fval + log(det(Sk));
 end
 % pPos relates dLprev to dL, which allows us to rearrange the solution
 % according to the original order of matrix blocks.
@@ -74,9 +78,9 @@ pPos = 1:p;
 if debugFlag
     kDIter = -100:1:0;
     fvalList = zeros(size(kDIter));
-    fvalList(end) = fvalPrev;
+    fvalList(end) = fval;
     fdvalList = zeros(size(kDIter));
-    fdvalList(end) = log10(abs(fvalPrev));
+    fdvalList(end) = log10(abs(fval));
     figure(1)
     subplot(1,2,1)
     pltHfval = plot(kDIter, fvalList, '*-');  % plH-: plot handler
@@ -168,37 +172,68 @@ while 1  % cycle in sequence over diagonal block:
     Ga = -Ka * Sa;
     SigmAo = Mo + Ka*Sa*Ka';
 
-    % stopping criterion
-    % fvalNext = evalObjFunc(Omega, S, lambda, dLnext);
-    % dimension-reduced version; faster
-    fvalNext = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
-                             So, Sa, Soa, lambda, dLnext);
-    % if abs(fvalPrev - fvalNext) < epsilon && kIter > p
-    if abs(fvalPrev - fvalNext)/abs(fvalPrev) < epsilon && kIter > p
+    % stopping criteria
+    [fvalNext, zNormNext] = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
+                                       So, Sa, Soa, lambda, dLnext);
+    % case I: successful convergence
+    % if abs(fval - fvalNext) < epsilon && kIter > p
+    if abs(fval - fvalNext)/abs(fval) < epsilon && kIter > p
         if debugFlag
             fprintf('Block cyclic decent stops at the %d-th iteration,\n', ...
                     kIter);
             % fprintf('with difference of loss values: %d\n', ...
-            %         abs(fvalNext - fvalPrev));
+            %         abs(fvalNext - fval));
             fprintf('with relative difference of loss values: %d\n', ...
-                    abs(fvalPrev - fvalNext)/abs(fvalPrev));
+                    abs(fval - fvalNext)/abs(fval));
         end
+        % save status of optimization process
+        optStatus.Iterations = kIter;
+        optStatus.OptimalValue = fval;
+        optStatus.RelDiffOptVal = (fval - fvalNext)/abs(fval);
+        optStatus.l0Norm = l0norm(Omega, dLprev, 'element');
+        optStatus.l0NormBlock = zNorm;
+        optStatus.Status = 'Succeed';
+
         break
     end
+    % case II: run out of maximal iterations
     if kIter > iterMax * p
         warning(['Convergence is very slow, and ' ...
                  'you may set lambda too small.'])
+        % status of optimization process
+        optStatus.Iterations = kIter;
+        optStatus.OptimalValue = fval;
+        optStatus.RelDiffOptVal = (fval - fvalNext)/abs(fval);
+        optStatus.l0Norm = l0norm(Omega, dLprev, 'element');
+        optStatus.l0NormBlock = zNorm;
+        optStatus.Status = 'Run out of maximal iterations';
+
         break
+    end
+    % case III: non-sparsity acquired due to too small lambdas
+    if zNormMultiP == zNormFull && ~rem(kIter, p) && zNormNext == zNormFull
+        Omega = inv(S);
+        Sigma = S;
+        % status of optimization process
+        optStatus.Iterations = kIter;
+        optStatus.OptimalValue = fval;
+        optStatus.RelDiffOptVal = (fval - fvalNext)/abs(fval);
+        optStatus.l0Norm = l0norm(Omega, dLprev, 'element');
+        optStatus.l0NormBlock = zNorm;
+        optStatus.Status = ['Stop due to non-sparsity;' ...
+                            'return S as MLE of Omega'];
+
+        return
     end
 
     % debugging
     if debugFlag
         kDIter = kDIter + 1;
         fvalList = circshift(fvalList, -1);
-        fvalList(end) = fvalPrev;
+        fvalList(end) = fval;
         fdvalList = circshift(fdvalList, -1);
-        % fdvalList(end) = log10(abs(fvalNext - fvalPrev));
-        fdvalList(end) = log10(abs(fvalPrev - fvalNext)/abs(fvalPrev));
+        % fdvalList(end) = log10(abs(fvalNext - fval));
+        fdvalList(end) = log10(abs(fval - fvalNext)/abs(fval));
         set(pltHfval, 'Xdata', kDIter, 'Ydata', fvalList);
         set(pltHfdval, 'Xdata', kDIter, 'Ydata', fdvalList);
         pause(.2);
@@ -215,9 +250,14 @@ while 1  % cycle in sequence over diagonal block:
     Sigma(iIdx:d, 1:iIdx-1) = Ga';
     Sigma(iIdx:d, iIdx:d) = Sa;
 
-    % backup current fval
-    fvalPrev = fvalNext;
-    % backup dLnext
+    % update fval
+    fval = fvalNext;
+    % update l0-norm
+    zNorm = zNormNext;
+    if ~rem(kIter, p)
+        zNormMultiP = zNormNext;
+    end
+    % update dLnext
     dLprev = dLnext;
 
 end
@@ -283,7 +323,7 @@ function matNew = retriOrder(mat, dL, pPos)
 
 end % END of retriOrder
 
-function fval = evalObjFunc(Omega, S, lambda, dL)
+function [fval, zNorm] = evalObjFunc(Omega, S, lambda, dL)
 % Evaluate the cost function.
 % Faster version: see "evalLossRe()"
 
@@ -291,25 +331,13 @@ function fval = evalObjFunc(Omega, S, lambda, dL)
 
     p = length(dL);
     d = sum(dL);
-    zNorm = 0;
-    for i = 1:p
-        for j = 1:p
-            iIdxU = sum(dL(1:i-1)) + 1;
-            iIdxD = sum(dL(1:i));
-            jIdxL = sum(dL(1:j-1)) + 1;
-            jIdxR = sum(dL(1:j));
-            if (i ~= j) && sum(sum(Omega(iIdxU:iIdxD, jIdxL:jIdxR)))
-                zNorm = zNorm + 1;
-            end
-        end
-    end
-
+    zNorm = l0norm(Omega, dL, 'block');
     fval = fval + lambda * zNorm;
 
 end % END of evalObjFunc
 
-function fval =  evalLossRe(OmegAo, OmegAa, Ba, invOmegAo, ...
-                               So, Sa, Soa, lambda, dL)
+function [fval, zNorm] =  evalLossRe(OmegAo, OmegAa, Ba, invOmegAo, ...
+                                     So, Sa, Soa, lambda, dL)
 % Evaluate the cost function via its dimensionally reducted form.
 
     fval = -logdet(OmegAo) - logdet(OmegAa - Ba'*invOmegAo*Ba) + ...
@@ -336,7 +364,8 @@ function fval =  evalLossRe(OmegAo, OmegAa, Ba, invOmegAo, ...
         end
     end
 
-    fval = fval + lambda * (zNormOmega + 2*zNormBa);
+    zNorm = zNormOmega + 2*zNormBa;
+    fval = fval + lambda * zNorm;
 
 end % END of evalObjFunc
 
@@ -392,3 +421,42 @@ function X = qpMatCG(M, W, epsilon)
     end
 
 end % END of qpMatCG
+
+function val = l0norm(Omega, dL, type)
+% PENALTYBIC computes the penalty value used in BIC cirterion for
+% element/block-wise sparse inverse covariance matrix.
+% element-wise:
+%     val = \sum_{i \neq j} I(Omega_{ij} \neq 0) d_i d_j
+% block-wise:
+%     val = \sum_{i \neq j} I(Omega_{ij} \neq 0)
+% INPUTS:
+% 	  type  :  string; 'element' or 'block'
+
+if nargin < 3
+    type = 'element';
+end
+assert(any(strcmp({'element', 'block'}, type)), ...
+       'The argument "type" has to be either "element" or "block".');
+
+p = length(dL);
+d = sum(dL);
+
+val = 0;
+for i = 1:p-1
+    for j = i+1:p
+        di = dL(i); dj = dL(j);
+        iIdx = sum(dL(1:i-1))+1:sum(dL(1:i));
+        jIdx = sum(dL(1:j-1))+1:sum(dL(1:j));
+        if sum(sum(Omega(iIdx, jIdx)))
+            switch type
+              case 'element'
+                val = val + di*dj;
+              case 'block'
+                val = val + 1;
+            end
+        end
+    end
+end
+val = val*2;
+
+end % END of l0norm
