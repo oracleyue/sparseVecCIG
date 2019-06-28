@@ -5,7 +5,7 @@
 % Last modified on 18 Jun 2019
 
 
-clear all; close all;
+% clear all; close all;
 
 % search paths
 addpath('./Goran');  % if using Goran's algorithm
@@ -15,11 +15,10 @@ rng(2);
 
 % data
 % load('./Goran/Omega_Goran.mat');
-load('./failure_data.mat');
 % load('~/Workspace/data/data_p500d4449.mat');
-% p = 100;
-% dL = randi(5, p, 1)*3;
-% Omega = sprandOm(dL, [.3 .8]);
+p = 20;
+dL = randi(5, p, 1)*3;
+Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 N = 10 * d;
@@ -27,7 +26,7 @@ X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda = .0001;
+lambda = .30703;  % 0.15 ~ 0.3
 algName = 'zyue';
 
 % estimation
@@ -35,10 +34,10 @@ algTimer = tic;
 switch algName
   case 'zyue'
     % CG-embeded solver
-    [OmegaHat, ~, optStatus] = bcdSpML(S, dL, lambda, [1e-6 20]);
+    [OmegaHat, ~, optStatus] = bcdSpML(S, dL, lambda, [1e-5 20]);
   case 'goran'
     % Goran's solver
-    [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 20, 1e-4, 0);
+    [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 10, 1e-3, 0);
 end
 toc(algTimer)
 
@@ -46,10 +45,10 @@ toc(algTimer)
 figure
 set(gcf,'color','white');
 subplot(1,2,1)
-imshowOm(Omega);
+imshowOm(Omega, 'spy');
 title('Original $\mathbf{\Omega}$', ...
       'FontSize', 15, 'Interpreter','latex');
 subplot(1,2,2)
-imshowOm(OmegaHat);
+imshowOm(OmegaHat, 'spy');
 title('Estimation $\mathbf{\widehat{\Omega}}$', ...
       'FontSize', 15, 'Interpreter','latex');

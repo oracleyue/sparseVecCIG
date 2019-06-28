@@ -14,7 +14,6 @@
 clear all; close all;
 
 % Search paths
-addpath('./extern'); % external libraries
 addpath('./Goran');  % using Goran's
 
 % Init seed
@@ -44,7 +43,7 @@ eTimeMatrix = zeros(2*numL, length(pList));
 eTime = zeros(2, length(pList));
 
 fprintf('Speed benchmark (elapsed CPU time):\n')
-for k = 1:length(pList)
+for k = length(pList)
     % data
     p = pList(k);
     dL = dLCell{k};

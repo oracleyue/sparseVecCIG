@@ -15,10 +15,9 @@ rng(2);
 
 % Data
 % load('./Goran/Omega_Goran.mat');
-load('./failure_data.mat');
-% p = 10;
-% dL = randi(5, p, 1)*3;
-% Omega = sprandOm(dL, [.3 .8]);
+p = 20;
+dL = randi(5, p, 1)*3;
+Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 N = 10 * d;
@@ -29,7 +28,7 @@ S = cov(X, 1);  % sample cov, normalized by N
 lambdaList = logspace(-2, 0, 40);  % range of lambdas
 algType = 'zyue';    % choose algorithm
 icType = 'BIC';      % choose information criterion
-tolOpt = [1e-4, 20]; % [epsilon iterMax]: precision and max #iterations
+tolOpt = [1e-3, 10]; % [epsilon iterMax]: precision and max #iterations
 
 % Estimation
 algTimer = tic;
@@ -47,10 +46,10 @@ xlabel('lambda'); ylabel(icType)
 figure
 set(gcf,'color','white');
 subplot(1,2,1)
-imshowOm(Omega);
+imshowOm(Omega, 'spy');
 title('Original $\mathbf{\Omega}$', ...
       'FontSize', 15, 'Interpreter','latex');
 subplot(1,2,2)
-imshowOm(OmegaHat);
+imshowOm(OmegaHat, 'spy');
 title('Estimation $\mathbf{\widehat{\Omega}}$', ...
       'FontSize', 15, 'Interpreter','latex');

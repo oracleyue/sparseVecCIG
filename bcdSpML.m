@@ -56,6 +56,7 @@ end
 dLprev = dL;
 Sigma = zeros(d,d);
 Omega = zeros(d,d);
+OmTemp = zeros(d,d);  % temporary Omega
 invSa = cell(p,1);
 fval = d;  % init value of objective function
 zNorm = 0; % block-wise zero norm of Omega (no diagonal)
@@ -172,58 +173,65 @@ while 1  % cycle in sequence over diagonal block:
     Ga = -Ka * Sa;
     SigmAo = Mo + Ka*Sa*Ka';
 
-    % stopping criteria
-    [fvalNext, zNormNext] = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
-                                       So, Sa, Soa, lambda, dLnext);
+    % setup Omega
+    OmTemp(1:iIdx-1, 1:iIdx-1) = Omega(1:iIdx-1, 1:iIdx-1);
+    OmTemp(1:iIdx-1, iIdx:d) = Ba;
+    OmTemp(iIdx:d, 1:iIdx-1) = Ba';
+    OmTemp(iIdx:d, iIdx:d) = OmegAa;
+
+    % Stopping Criteria
+    stopCase = 0;
+    [fvalNext, zNormNext] = evalLoss(OmTemp, S, lambda, dLnext);
+    % dimensionally reduced version
+    % [fvalNext, zNormNext] = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
+    %                                    So, Sa, Soa, lambda, dLnext);
+
     % case I: successful convergence
-    % if abs(fval - fvalNext) < epsilon && kIter > p
-    if abs(fval - fvalNext)/abs(fval) < epsilon && kIter > p
+    if kIter > p ... % at least iterate over all diagonal lements
+        && fval >= fvalNext ...  % fval is decreasing
+        && abs(fval - fvalNext)/abs(fval) < epsilon % relative decrement
         if debugFlag
             fprintf('Block cyclic decent stops at the %d-th iteration,\n', ...
                     kIter);
-            % fprintf('with difference of loss values: %d\n', ...
-            %         abs(fvalNext - fval));
             fprintf('with relative difference of loss values: %d\n', ...
                     abs(fval - fvalNext)/abs(fval));
         end
-        % save status of optimization process
-        optStatus.Iterations = kIter;
-        optStatus.OptimalValue = fval;
-        optStatus.RelDiffOptVal = (fval - fvalNext)/abs(fval);
-        optStatus.l0Norm = l0norm(Omega, dLprev, 'element');
-        optStatus.l0NormBlock = zNorm;
-        optStatus.Status = 'Succeed';
-
-        break
+        stopCase = 1;
+        stopMsg = 'Succeed';
     end
     % case II: run out of maximal iterations
     if kIter > iterMax * p
         warning(['Convergence is very slow, and ' ...
                  'you may set lambda too small.'])
-        % status of optimization process
-        optStatus.Iterations = kIter;
-        optStatus.OptimalValue = fval;
-        optStatus.RelDiffOptVal = (fval - fvalNext)/abs(fval);
-        optStatus.l0Norm = l0norm(Omega, dLprev, 'element');
-        optStatus.l0NormBlock = zNorm;
-        optStatus.Status = 'Run out of maximal iterations';
-
-        break
+        stopCase = 2;
+        stopMsg = 'Run out of maximal iterations';
     end
     % case III: non-sparsity acquired due to too small lambdas
     if zNormMultiP == zNormFull && ~rem(kIter, p) && zNormNext == zNormFull
         Omega = inv(S);
         Sigma = S;
-        % status of optimization process
+        stopCase = 3;
+        stopMsg = 'Stop due to non-sparsity; return S as MLE of Omega';
+    end
+    % case IV: divergence
+    if fvalNext > fval
+        stopCase = 4;
+        stopMsg = 'Divergence observed!';
+    end
+    % stop process and save optimization status
+    if stopCase
         optStatus.Iterations = kIter;
         optStatus.OptimalValue = fval;
         optStatus.RelDiffOptVal = (fval - fvalNext)/abs(fval);
         optStatus.l0Norm = l0norm(Omega, dLprev, 'element');
         optStatus.l0NormBlock = zNorm;
-        optStatus.Status = ['Stop due to non-sparsity;' ...
-                            'return S as MLE of Omega'];
-
-        return
+        optStatus.Status = stopMsg;
+        switch stopCase
+          case {1, 2, 4}
+            break
+          case 3
+            return
+        end
     end
 
     % debugging
@@ -240,9 +248,7 @@ while 1  % cycle in sequence over diagonal block:
     end
 
     % update Omega
-    Omega(1:iIdx-1, iIdx:d) = Ba;
-    Omega(iIdx:d, 1:iIdx-1) = Ba';
-    Omega(iIdx:d, iIdx:d) = OmegAa;
+    Omega = OmTemp;
 
     % update Sigma
     Sigma(1:iIdx-1, 1:iIdx-1) = SigmAo;
@@ -323,11 +329,11 @@ function matNew = retriOrder(mat, dL, pPos)
 
 end % END of retriOrder
 
-function [fval, zNorm] = evalObjFunc(Omega, S, lambda, dL)
+function [fval, zNorm] = evalLoss(Omega, S, lambda, dL)
 % Evaluate the cost function.
 % Faster version: see "evalLossRe()"
 
-    fval = -logdet(Omega) + trace(S * Omega);
+    fval = -logdet(Omega, 'det') + trace(S * Omega);
 
     p = length(dL);
     d = sum(dL);
@@ -369,11 +375,34 @@ function [fval, zNorm] =  evalLossRe(OmegAo, OmegAa, Ba, invOmegAo, ...
 
 end % END of evalObjFunc
 
-function val = logdet(X)
+function val = logdet(X, method)
 % Reliably compute log(det(X)), where X must be positive definte matrix.
 
-    L = chol(X);
-    val = 2*sum(log(diag(L)));
+    if nargin < 2
+        method = 'det';
+    end
+    assert(any(strcmpi({'eig', 'chol', 'det'}, method)), ...
+           'The argument "method" must be "eig", "chol" or "det".');
+
+    switch method
+      case 'chol'
+        % MATLAB 2019a has a severe bug on "chol"!
+        % It fails on matrices with minimal eigenvalue larger than 5e-4!
+        [L, flag] = chol(X);
+        if flag
+            msg = sprintf(['An approximation of log(det(Omega)) is computed'...
+                           ', due to %d number of eigenvalues '...
+                           'that are particularly close to 0.'], ...
+                          size(X,1)-flag+1);
+            warning(msg);
+        end
+        val = 2*sum(log(diag(L)));
+      case 'eig'
+        val = log(prod(eig(X)));
+      case 'det'
+        % This method is not reliable when Omega is large, e.g. dim > 400.
+        val = log(det(X));
+    end
 
 end % END of logdet
 
