@@ -333,7 +333,7 @@ function [fval, zNorm] = evalLoss(Omega, S, lambda, dL)
 % Evaluate the cost function.
 % Faster version: see "evalLossRe()"
 
-    fval = -logdet(Omega, 'det') + trace(S * Omega);
+    fval = -logdet(Omega, 'chol') + trace(S * Omega);
 
     p = length(dL);
     d = sum(dL);
