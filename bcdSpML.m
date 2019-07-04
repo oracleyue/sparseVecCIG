@@ -22,8 +22,33 @@ function [Omega, Sigma, optStatus] = bcdSpML(S, dL, lambda, tolOptions)
 % Author: Zuogong YUE <oracleyue@gmail.com>
 %         https://github.com/oracleyue
 % Licensed under the GNU General Public License
+
+% Log of updates:
 %
-% Last update on 20 Jun 2019
+% - Adding several stopping conditions due to observations of different
+% converence cases.
+%
+% - Update the way to compute log(det(X)), by noticing that MATLAB
+% default det() cannot handle large matrices, which gives +/-Inf and
+% fails our algorithm. By taking advantages of positive definitiness of
+% X, we use chol() to compute log(det(X)).
+%
+% - Replace "circshift" when updating Bia, since "circshift" is pretty
+% costly when dealing with large matrices. Now we directly retrieve and
+% update Bia by directly element positioning.
+%
+% - Matrix CG method may not be necessary when submatrix is not large
+% enough, e.g. size < 100x100. Here we add a threshold "maxDiagMatrix"
+% to choose between Matlab default "mldivide" and our CG method.
+%
+% - By using MATLAB "profile", we observe that the major cost of time is
+% not the algorithm body, but "evalLoss()" (computing the value of
+% objective function) and children funtion "l0norm()". Thus, we update it
+% to recursively compute ||Omega||_0, i.e. "zNorm", instead of calling
+% "l0norm()" separately. Another time consuming operation in
+% "evalLoss()" is "trace(S*Omega)", which is pending to be updated.
+
+% Last update on 04 Jul 2019
 
 
 % Flags
@@ -32,7 +57,7 @@ debugFlag = 0;
 % Preparations
 d = size(S, 1);
 p = length(dL);
-blkSizeMax = max(dL);
+maxDiagMatrix = max(dL);  % maximal size of submatrix on diagonal
 assert(sum(dL) == d, 'Sample covariance S and partition dL fail to match!');
 if nargin < 4
     epsilon = 1e-4;  % convergence precision
@@ -149,23 +174,34 @@ while 1  % cycle in sequence over diagonal block:
         % Mmia = Mo(1:dl(1), dl(1)+1:end);
 
         % partition of Ba and Soa
+        Bia = Ba(ibIdx, :);
         Bmia = [Ba(jbIdxPost,:); Ba(jbIdxPre,:)];
         % Bmia = Ba(dl(1)+1:end, :);
         Sioa = Soa(ibIdx,:);
         % Sioa = Soa(1:dl(1), :);
 
-        if blkSizeMax < 100  % use naive inverse
+        % compute Bia*
+        if maxDiagMatrix < 100  % use naive inverse
             BiaStar = - Mia \ (Mmia*Bmia*Sa + Sioa) * Ta;
-        else  % use vector CG method
+        else  % use matrix CG method
             BiaStar = qpMatCG(-Mia, (Mmia*Bmia*Sa + Sioa) * Ta);
         end
 
-        % update Bia, i.e. $B_{ia}^+$
+        % update Bia+, i.e. $B_{ia}^+$
         lambdAia = .5 * trace(Sa*BiaStar'*Mia*BiaStar);
         if lambdAia > lambda
             BiaPlus = BiaStar;
         else
             BiaPlus = zeros(size(BiaStar));
+        end
+
+        % update (block) zNorm recursively, since
+        % l0norm() in evalLoss() is costly for large matrices
+        isNonZeroBlk = any(Bia, 'all');
+        if isNonZeroBlk && lambdAia <= lambda
+            zNorm = zNorm - 2;
+        elseif ~isNonZeroBlk && lambdAia > lambda
+            zNorm = zNorm + 2;
         end
 
         % update Ba with Bia+
@@ -202,7 +238,7 @@ while 1  % cycle in sequence over diagonal block:
     % Stopping Criteria
     stopCase = 0;
     tolType = 'rel';  % "abs" "rel"
-    [fvalNext, zNormNext, errsig] = evalLoss(OmTemp, S, lambda, dLnext);
+    [fvalNext, errsig] = evalLoss(OmTemp, S, lambda*zNorm);
     % dimensionally reduced version
     % [fvalNext, zNormNext] = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
     %                                    So, Sa, Soa, lambda, dLnext);
@@ -236,7 +272,7 @@ while 1  % cycle in sequence over diagonal block:
         stopMsg = 'Run out of maximal iterations';
     end
     % case III: non-sparsity acquired due to too small lambdas
-    if zNormPm == zNormFull && zNormNext == zNormFull ...
+    if zNormPm == zNormFull && zNorm == zNormFull ...
             && ~rem(kIter, p)
         stopCase = 3;
         stopMsg = 'Stop due to non-sparsity; return inv(S) as MLE(Omega)';
@@ -300,10 +336,9 @@ while 1  % cycle in sequence over diagonal block:
     Sigma = SigTemp;
     % update fval
     fval = fvalNext;
-    % update l0-norm
-    zNorm = zNormNext;
+    % save zNorm when iterating at multiplicity of p
     if ~rem(kIter, p)
-        zNormPm = zNormNext;
+        zNormPm = zNorm;
     end
     % update dLnext
     dLprev = dLnext;
@@ -372,17 +407,25 @@ function matNew = retriOrder(mat, dL, pPos)
 
 end % END of retriOrder
 
-function [fval, zNorm, errsig] = evalLoss(Omega, S, lambda, dL)
+% function [fval, zNorm, errsig] = evalLoss(Omega, S, lambda, dL)
+% % Evaluate the cost function.
+% % Faster version: see "evalLossRe()"
+
+%     [lval, errsig] = logdet(Omega, 'chol');
+%     fval = -lval + trace(S * Omega);
+
+%     p = length(dL);
+%     d = sum(dL);
+%     zNorm = l0norm(Omega, dL, 'block');
+%     fval = fval + lambda * zNorm;
+
+% end % END of evalObjFunc
+
+function [fval, errsig] = evalLoss(Omega, S, lambNorm)
 % Evaluate the cost function.
-% Faster version: see "evalLossRe()"
 
     [lval, errsig] = logdet(Omega, 'chol');
-    fval = -lval + trace(S * Omega);
-
-    p = length(dL);
-    d = sum(dL);
-    zNorm = l0norm(Omega, dL, 'block');
-    fval = fval + lambda * zNorm;
+    fval = -lval + trace(S * Omega) + lambNorm;
 
 end % END of evalObjFunc
 
