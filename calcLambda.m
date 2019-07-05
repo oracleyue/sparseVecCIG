@@ -1,5 +1,5 @@
 function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
-                                                    icType, algType, tolOptions)
+                                                    icType, algType, algOptions)
 % CALCLAMBDA computes the BIC or AIC criterion to determine lambda,
 % i.e. the regularization parameter for l0-penalized ML.
 %
@@ -8,12 +8,9 @@ function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
 %   dL         :   (p x 1) vector of positive integers, and Sum(dL) = d
 %   N          :   length of data
 %   lambdaList :   positive real vector of lambdas
-%   tolOptions :   [epsilon iterMax]
-%    - epsilon :   0 < epsilon < 1; tolerance to stop iteration
-%    - iterMax :   integer > 1; force to stop after iterMax iterations
-%   (the above arguments inherit from "bcdSpML.m")
 %   icType     :   string (default: 'BIC'); set 'AIC' or 'BIC'
 %   algType    :   string; "zyue" or "goran"
+%   algOptions :   the "options" from "bcdSpML.m"
 %
 % OUTPUT:
 %   lambda     :   scalar, the best that minimises BIC values (if
@@ -63,12 +60,10 @@ for k = 1:numL
     lambda = lambdaList(k);
     switch algType
       case 'zyue'
-        [OmegaHat, ~] = bcdSpML(S, dL, lambda, tolOptions);
-      case 'zyue-var'
-        [OmegaHat, ~] = bcdSpML_var(S, dL, lambda, tolOptions);
+        [OmegaHat, ~] = bcdSpML(S, dL, lambda, algOptions);
       case 'goran'
         [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, ...
-                                     tolOptions(2), tolOptions(1), 0);
+                                     algOptions(2), algOptions(1), 0);
     end
     estOmega{k} = OmegaHat;
 

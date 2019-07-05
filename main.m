@@ -26,19 +26,20 @@ X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda = 0.6;  % 0.15 ~ 0.3
+lambda = 0.3;   % 0.15 ~ 0.3
 algName = 'zyue';
+algOpt = {[1e-8 100], 'rel', 'val'};
 
 % estimation
 algTimer = tic;
 switch algName
   case 'zyue'
     % CG-embeded solver
-    [OmegaHat, ~, optStatus] = bcdSpML_var(S, dL, lambda, [1e-6 500]);
+    [OmegaHat, ~, optStatus] = bcdSpML(S, dL, lambda, algOpt);
     disp('Optimization status:'); disp(optStatus)
   case 'goran'
     % Goran's solver
-    [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 20, 1e-3, 0);
+    [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, 10, 1e-3, 0);
 end
 toc(algTimer)
 

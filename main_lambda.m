@@ -28,7 +28,7 @@ S = cov(X, 1);  % sample cov, normalized by N
 lambdaList = logspace(-2, 0, 40);  % range of lambdas
 algType = 'zyue';    % choose algorithm
 icType = 'BIC';      % choose information criterion
-tolOpt = [1e-3, 20]; % [epsilon iterMax]: precision and max #iterations
+tolOpt = [1e-3, 20]; % "options" from "bcdSpML.m"
 
 % Estimation
 algTimer = tic;
