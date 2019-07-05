@@ -16,7 +16,7 @@ rng(2);
 % data
 % load('./Goran/Omega_Goran.mat');
 % load('~/Workspace/data/data_p500d4449.mat');
-p = 20;
+p = 10;
 dL = randi(5, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
@@ -26,7 +26,7 @@ X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda = 0.5;  % 0.15 ~ 0.3
+lambda = 0.6;  % 0.15 ~ 0.3
 algName = 'zyue';
 
 % estimation
@@ -34,7 +34,7 @@ algTimer = tic;
 switch algName
   case 'zyue'
     % CG-embeded solver
-    [OmegaHat, ~, optStatus] = bcdSpML(S, dL, lambda, [1e-3 20]);
+    [OmegaHat, ~, optStatus] = bcdSpML_var(S, dL, lambda, [1e-6 500]);
     disp('Optimization status:'); disp(optStatus)
   case 'goran'
     % Goran's solver

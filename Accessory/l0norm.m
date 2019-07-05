@@ -8,7 +8,7 @@ function val = l0norm(Omega, dL, type)
 
 
 if nargin < 3
-    type = 'element';
+    type = 'block';
 end
 if ~any(strcmp({'element', 'block', 'group'}, type))
     error('The argument "type" is wrong, which must be: element, block, group.')

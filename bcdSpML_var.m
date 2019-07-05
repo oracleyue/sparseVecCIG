@@ -1,4 +1,4 @@
-function [Omega, Sigma, optStatus] = bcdSpML(S, dL, lambda, tolOptions)
+function [Omega, Sigma, optStatus] = bcdSpML_var(S, dL, lambda, tolOptions)
 % BCDSPML the block-wise cyclic decent method with conjugate gradient
 % embedded for group L0 penalised log-likelihood maximation problems. It
 % optimises:
@@ -45,17 +45,21 @@ function [Omega, Sigma, optStatus] = bcdSpML(S, dL, lambda, tolOptions)
 % not the algorithm body, but "evalLoss()" (computing the value of
 % objective function) and children funtion "l0norm()". Thus, we update it
 % to recursively compute ||Omega||_0, i.e. "zNorm", instead of calling
-% "l0norm()" separately. Another time consuming operation in "evalLoss()"
-% is "trace(S*Omega)", which has no room to improve (the dim-reduced
-% version improves little). Thus, we may consider using different criteria:
-% checking convergence of ||Omega_k - Omega_k+1|| rather than || fval_k -
-% fval_k+1||.
+% "l0norm()" separately. Another time consuming operation in
+% "evalLoss()" is "trace(S*Omega)", which is pending to be updated.
+%
+% - Since the cost of "evalLoss()" is almost half of the total cost, and
+% it is due to compute matrix multiplication of large matrices S*Omega,
+% which has least possiblity to improve significant and which is only
+% used for stopping criterion. Thus, we provide an alternative stopping
+% rule, which test the convergence of optimal variables in iterates, rather
+% than the objective values.
 
 % Last update on 04 Jul 2019
 
 
 % Flags
-debugFlag = 0;
+debugFlag = 1;
 
 % Preparations
 d = size(S, 1);
@@ -108,19 +112,19 @@ pPos = 1:p;
 
 if debugFlag
     kDIter = -100:1:0;
-    fvalList = zeros(size(kDIter));
-    fvalList(end) = fval;
-    fdvalList = zeros(size(kDIter));
-    fdvalList(end) = log10(abs(fval));
+    valList = zeros(size(kDIter));
+    valList(end) = fval;
+    dvalList = zeros(size(kDIter));
+    dvalList(end) = 0;
     figure(1)
     subplot(1,2,1)
-    pltHfval = plot(kDIter, fvalList, '*-');  % plH-: plot handler
+    pltHfval = plot(kDIter, valList, '*-');  % plH-: plot handler
     xlabel('Iterations');
-    ylabel('Loss function')
+    ylabel('Loss Function')
     subplot(1,2,2)
-    pltHfdval = plot(kDIter, fdvalList, '*-');  % plH-: plot handler
+    pltHfdval = plot(kDIter, dvalList, '*-');  % plH-: plot handler
     xlabel('Iterations');
-    ylabel('Incremental loss value (log10)');
+    ylabel('Fro. norm increment of Omega (log10)');
 end
 
 % Cycle descent over diagonal blocks (i.e. OmegAa)
@@ -164,6 +168,7 @@ while 1  % cycle in sequence over diagonal block:
     % Nexted cycle descent loop to update off-diagonal elements
     % update OmegAa, Ba
     dl = dLnext(1:end-1);
+    zNormNext = zNorm;
     for k = 1:p-1
         % calculate block indices (to avoid permutation via circshift)
         ibIdx = sum(dl(1:k-1))+1 : sum(dl(1:k));
@@ -173,15 +178,11 @@ while 1  % cycle in sequence over diagonal block:
         % partition of Mo
         Mia = Mo(ibIdx, ibIdx);
         Mmia = [Mo(ibIdx, jbIdxPost) Mo(ibIdx, jbIdxPre)];
-        % Mia = Mo(1:dl(1), 1:dl(1));
-        % Mmia = Mo(1:dl(1), dl(1)+1:end);
 
         % partition of Ba and Soa
         Bia = Ba(ibIdx, :);
         Bmia = [Ba(jbIdxPost,:); Ba(jbIdxPre,:)];
-        % Bmia = Ba(dl(1)+1:end, :);
         Sioa = Soa(ibIdx,:);
-        % Sioa = Soa(1:dl(1), :);
 
         % compute Bia*
         if maxDiagMatrix < 100  % use naive inverse
@@ -202,20 +203,14 @@ while 1  % cycle in sequence over diagonal block:
         % l0norm() in evalLoss() is costly for large matrices
         isNonZeroBlk = any(Bia, 'all');
         if isNonZeroBlk && lambdAia <= lambda
-            zNorm = zNorm - 2;
+            zNormNext = zNormNext - 2;
         elseif ~isNonZeroBlk && lambdAia > lambda
-            zNorm = zNorm + 2;
+            zNormNext = zNormNext + 2;
         end
 
         % update Ba with Bia+
         Ba(ibIdx,:) = BiaPlus;
-        % Ba = [BiaPlus; Bmia];
 
-        % % permute
-        % Mo = circshift(Mo, [-dLnext(k), -dLnext(k)]);
-        % Ba = circshift(Ba, -dLnext(k));
-        % Soa = circshift(Soa, -dLnext(k));
-        % dl = circshift(dl, -1);
     end
 
     % update new Omega's and Simga's blocks
@@ -241,28 +236,26 @@ while 1  % cycle in sequence over diagonal block:
     % Stopping Criteria
     stopCase = 0;
     tolType = 'rel';  % "abs" "rel"
-    [fvalNext, errsig] = evalLoss(OmTemp, S, lambda*zNorm);
-    % dim-reduced version
-    % [fvalNext, errsig] = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
-    %                                 So, Sa, Soa, lambda*zNorm);
+    zNormInc = abs(zNormNext - zNorm);
     % use abs./rel. error in convergence checking
     switch tolType
       case {'absolute', 'abs', 'abs.'}
         tolType = 'absolute';
-        fvalInc = abs(fval - fvalNext);
+        valOmInc = norm(OmTemp - Omega, 'fro');
       case {'relative', 'rel', 'rel.'}
         tolType = 'relative';
-        fvalInc = abs(fval - fvalNext)/abs(fval);
+        valOmInc = norm(OmTemp-Omega, 'fro') / norm(Omega, 'fro');
+        % valOmInc = norm(OmTemp-Omega, 'fro') / ...
+        %          min([norm(Omega, 'fro') norm(OmTemp, 'fro')]);
     end
     % case I: successful convergence
     if kIter > p ... % at least iterate over all diagonal lements
-        && fval >= fvalNext ...  % fval is decreasing
-        && fvalInc < epsilon
+            && valOmInc < epsilon && ~zNormInc % no change of zero norms
         if debugFlag
             fprintf('Block cyclic decent stops at the %d-th iteration,\n', ...
                     kIter);
             fprintf('with %s decrease of loss values: %d\n', ...
-                    tolType, fvalInc);
+                    tolType, valOmInc);
         end
         stopCase = 1;
         stopMsg = 'Succeed';
@@ -280,35 +273,35 @@ while 1  % cycle in sequence over diagonal block:
         stopCase = 3;
         stopMsg = 'Stop due to non-sparsity; return inv(S) as MLE(Omega)';
     end
-    % case IV: divergence
-    if fvalNext > fval
-        % stopCase = 4;
-        stopMsg = 'Divergence observed';
-    end
-    % case V: fail in evaluating loss functions (like chol() or det())
-    if errsig
-        stopCase = 5;
-        stopMsg = 'Failure in evaluating likelihood';
-    end
+    % % case IV: divergence
+    % if fvalNext > fval
+    %     stopCase = 4;
+    %     stopMsg = 'Divergence observed';
+    % end
     % debugging
     if debugFlag
         kDIter = kDIter + 1;
-        fvalList = circshift(fvalList, -1);
-        fvalList(end) = fvalNext;
-        fdvalList = circshift(fdvalList, -1);
-        fdvalList(end) = log10(fvalInc);
-        set(pltHfval, 'Xdata', kDIter, 'Ydata', fvalList);
-        set(pltHfdval, 'Xdata', kDIter, 'Ydata', fdvalList);
+        valList = circshift(valList, -1);
+        try
+            fvalNext = evalLoss(OmTemp, S, lambda*zNorm);
+        catch MExcept
+            fvalNext = fval;
+        end
+        valList(end) = fvalNext;
+        dvalList = circshift(dvalList, -1);
+        dvalList(end) = log10(valOmInc);
+        set(pltHfval, 'Xdata', kDIter, 'Ydata', valList);
+        set(pltHfdval, 'Xdata', kDIter, 'Ydata', dvalList);
         pause(.1);
     end
     % report optimization status
     if stopCase
         optStatus.Iterations = kIter;
-        optStatus.OptimalValue = fval;
-        optStatus.LastIncrement = -fvalInc;
+        optStatus.OptimalValue = 0;
+        optStatus.LastIncrement = -valOmInc;
         optStatus.ToleranceType = [tolType ' error'];
         % optStatus.l0Norm = l0norm(Omega, dLprev, 'element');
-        optStatus.Blockl0Norm = zNorm;
+        optStatus.Groupl0Norm = zNorm;
         optStatus.Status = stopMsg;
     end
     % handle stopping cases
@@ -316,35 +309,33 @@ while 1  % cycle in sequence over diagonal block:
       case {1, 2}
         Omega = OmTemp;
         Sigma = SigTemp;
+        optStatus.OptimalValue = ...
+            evalLoss(Omega, S, lambda*zNormNext);
         break
       case 3
         Omega = inv(S);
         Sigma = S;
+        optStatus.OptimalValue = ...
+            evalLoss(Omega, S, lambda*zNormFull);
         return
       case 4
-        optStatus.LastIncrement = fvalInc;
-        break
-      case 5
-        switch errsig
-          case 1
-            warning('"chol()" failed in evaluating likelihood!')
-          case 2
-            warning('"det()" failed in evaluating likelihood!')
-        end
+        optStatus.LastIncrement = valOmInc;
         break
     end
 
     % proceed to the next iteration
     Omega = OmTemp;
     Sigma = SigTemp;
-    % update fval
-    fval = fvalNext;
+    % update zNorm
+    zNorm = zNormNext;
     % save zNorm when iterating at multiplicity of p
     if ~rem(kIter, p)
         zNormPm = zNorm;
     end
     % update dLnext
     dLprev = dLnext;
+    % update fval in debugging mode
+    if debugFlag  fval = fvalNext; end
 
 end
 

@@ -15,7 +15,7 @@ rng(2);
 
 % Data
 % load('./Goran/Omega_Goran.mat');
-p = 5;
+p = 20;
 dL = randi(5, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);

@@ -35,7 +35,7 @@ assert(any(strcmp({'AIC', 'BIC'}, icType)), ...
 if nargin < 6
     algType = 'zyue';
 end
-assert(any(strcmp({'zyue', 'goran'}, algType)), ...
+assert(any(strcmp({'zyue', 'zyue-var', 'goran'}, algType)), ...
        'Argument "algType" must to "zyue" or "goran".');
 if strcmp(algType, 'goran')
     addpath('./Goran');
@@ -64,6 +64,8 @@ for k = 1:numL
     switch algType
       case 'zyue'
         [OmegaHat, ~] = bcdSpML(S, dL, lambda, tolOptions);
+      case 'zyue-var'
+        [OmegaHat, ~] = bcdSpML_var(S, dL, lambda, tolOptions);
       case 'goran'
         [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, ...
                                      tolOptions(2), tolOptions(1), 0);
