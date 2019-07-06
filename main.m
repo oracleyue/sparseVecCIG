@@ -16,7 +16,7 @@ rng(2);
 % data
 % load('./Goran/Omega_Goran.mat');
 % load('~/Workspace/data/data_p500d4449.mat');
-p = 10;
+p = 100;
 dL = randi(5, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
@@ -26,9 +26,9 @@ X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda = 0.3;   % 0.15 ~ 0.3
+lambda = 0.2;   % 0.15 ~ 0.3
 algName = 'zyue';
-algOpt = {[1e-8 100], 'rel', 'val'};
+algOpt = {[1e-3 50], 'rel', 'var'};
 
 % estimation
 algTimer = tic;

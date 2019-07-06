@@ -15,7 +15,7 @@ rng(2);
 
 % Data
 % load('./Goran/Omega_Goran.mat');
-p = 20;
+p = 10;
 dL = randi(5, p, 1)*3;
 Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
@@ -28,7 +28,7 @@ S = cov(X, 1);  % sample cov, normalized by N
 lambdaList = logspace(-2, 0, 40);  % range of lambdas
 algType = 'zyue';    % choose algorithm
 icType = 'BIC';      % choose information criterion
-tolOpt = [1e-3, 20]; % "options" from "bcdSpML.m"
+tolOpt = [1e-4, 50]; % "options" from "bcdSpML.m"
 
 % Estimation
 algTimer = tic;

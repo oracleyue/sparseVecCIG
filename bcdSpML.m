@@ -81,8 +81,17 @@ function [Omega, Sigma, optStatus] = bcdSpML(S, dL, lambda, options)
 % version improves little). Thus, we may consider using different criteria:
 % checking convergence of ||Omega_k - Omega_k+1|| rather than || fval_k -
 % fval_k+1||.
+%
+% - Add new method: first permute the order of diagonal matrix (and
+% corresponding off-diagonal submatrices), and then start iterating. It is
+% due to observations of getting stuck at local optimalities of Boolean
+% structures.
+%
+% - Adding "valInc ~= 0" when checking "valInc < tol", since valInc
+% would be exactly zero, if the current Ba is identical to zero in the
+% ground truth.
 
-% Last update on 04 Jul 2019
+% Last update on 07 Jul 2019
 
 
 % Flags
@@ -94,25 +103,31 @@ p = length(dL);
 maxBlkSize = max(dL);  % maximal size of submatrix on diagonal
 assert(sum(dL) == d, 'Sample covariance S and partition dL fail to match!');
 if nargin < 4          % default options of stopping criteria
-    tol = 1e-6;        % tolerance precision
-    maxIter = 100;     % maximal number of iterations
+    tol = 1e-3;        % tolerance precision
+    maxIter = 20;      % maximal number of iterations
     tolType  = 'rel';  % absolute or relative errors
     evalType = 'var';  % check convergence of obj functions or variables
 else
     [tol, maxIter, tolType, evalType] = parseOptions(options);
 end
+iterType = 'default';  % "default", "random"
 
 % Initialization
-dLprev = dL;
 Sigma = zeros(d,d);
 Omega = zeros(d,d);
 OmTemp = zeros(d,d);   % temporary Omega
 SigTemp = zeros(d,d);  % temporary Sigma
 invSa = cell(p,1);
-fval = d;   % init value of objective function
+fval = d;            % objective function
 zNorm = 0;           % block l0 norm of Omega (no diagonal)
-zNormPm = zNorm;     % block l0 norm of Omega when rem(kIter, p) == 0
 zNormFull = p^2 - p; % block l0 norm of full Omega matrix
+if strcmp(iterType, 'random')
+    rng('shuffle');
+    pm = randperm(p);  % permutation map: 1:p -> pm
+    P = permMatrix(pm, dL);
+    dL = dL(pm);
+    S = P*S*P';
+end
 for k = 1:p
     iIdx = sum(dL(1:k-1)) + 1;
     jIdx = sum(dL(1:k));
@@ -123,6 +138,7 @@ for k = 1:p
     Omega(iIdx:jIdx, iIdx:jIdx) = invSk;
     fval = fval + log(det(Sk));
 end
+dLprev = dL;
 % pPos relates dLprev to dL, which allows us to rearrange the solution
 % according to the original order of matrix blocks.
 pPos = 1:p;
@@ -133,7 +149,7 @@ if debugFlag
     valList(end) = fval;
     valDList = zeros(size(kDIter));
     valDList(end) = log10(abs(fval));
-    fig_hl = figure(1)
+    fig_hl = figure(1);
     set(fig_hl, 'units', 'inches', ...
                 'position', [5.2500 7.9861 14.1944 4.3750]);
     subplot(1,2,1)
@@ -151,19 +167,17 @@ kIter = 0;  % iteration index
 while 1  % cycle in sequence over diagonal block:
          % (p-1)-block to p position, and p-block to 1st position
     kIter = kIter + 1;
+
     % update dLnext and permutation matrix to update Mo
-    % [P, dLnext, pPos] = circPerm(dLprev, pPos);
     dLnext = circshift(dLprev, 1);
     pPos = circshift(pPos, 1);
-
 
     % update Omega (being permuted)
     Omega = circshift(Omega, [dLprev(p) dLprev(p)]);
     Ba = Omega(1:end-dLnext(p), end-dLnext(p)+1:end);
 
     % permute S
-    S = circshift(S, [dLprev(p) dLprev(p)]);  % one can use P to
-                                              % permute, but this is faster
+    S = circshift(S, [dLprev(p) dLprev(p)]);
     So = S(1:end-dLnext(p), 1:end-dLnext(p));
     Soa = S(1:end-dLnext(p), end-dLnext(p)+1:end);
     Sa = S(d-dLnext(p)+1:d, d-dLnext(p)+1:d);
@@ -178,11 +192,15 @@ while 1  % cycle in sequence over diagonal block:
 
     % update Mo via Mo = SigmAo - Ga*inv(SigmAa)*Ga'
     % reduce inv(OmegAo) (d-dp x d-dp) to smaller inv(SigmAa) (dp x dp)
-    % Mo = SigmAo - Ga/SigmAa*Ga';
-    % use Cholesky to accelerate
-    R = chol(SigmAa);
-    GRinv = Ga / R;
-    Mo = SigmAo - GRinv*GRinv';
+    try % use Cholesky to accelerate
+        R = chol(SigmAa);
+        GRinv = Ga / R;
+        Mo = SigmAo - GRinv*GRinv';
+    catch ME
+        warning('Simga_a fails to be positive definite!')
+        % use mrdivide when chol() failed
+        Mo = SigmAo - Ga/SigmAa*Ga';
+    end
 
     % Nexted cycle descent loop to update off-diagonal elements
     % update OmegAa, Ba
@@ -204,7 +222,7 @@ while 1  % cycle in sequence over diagonal block:
         Sioa = Soa(ibIdx,:);
 
         % compute Bia*
-        if maxBlkSize < 0  % use naive inverse
+        if maxBlkSize < 50  % use naive inverse
             BiaStar = - Mia \ (Mmia*Bmia*Sa + Sioa) * Ta;
         else  % use matrix CG method
             BiaStar = qpMatCG(-Mia, (Mmia*Bmia*Sa + Sioa) * Ta);
@@ -253,13 +271,9 @@ while 1  % cycle in sequence over diagonal block:
 
     % Stopping Criteria
     stopCase = 0;
-    zNormInc = abs(zNormNext - zNorm);
     if strcmp(evalType, 'val') | debugFlag
         try
             fvalNext = evalLoss(OmTemp, S, lambda*zNorm);
-            % dim-reduced version
-            % fvalNext = evalLossRe(OmegAo, OmegAa, Ba, Mo, ...
-            %                       So, Sa, Soa, lambda*zNorm);
         catch ME % fail to evaluate loss functions (chol() or det())
         	switch ME.identifier
               case 'User:FunctionFailure'
@@ -283,7 +297,8 @@ while 1  % cycle in sequence over diagonal block:
     end
     % case I: successful convergence
     if kIter > p ...  % at least iterate once over all diagonal
-            && valInc < tol && ~zNormInc % no sparsity improvement
+            && valInc < tol && valInc ...  % see "log" for why nonzero valInc
+            && (zNormNext == zNorm)  % no sparsity improvement
         if debugFlag
             fprintf('Block cyclic decent stops at the %d-th iteration,\n', ...
                     kIter);
@@ -301,8 +316,7 @@ while 1  % cycle in sequence over diagonal block:
         stopMsg = 'Run out of maximal iterations';
     end
     % case III: non-sparsity acquired due to too small lambdas
-    if zNormPm == zNormFull && zNorm == zNormFull ...
-            && ~rem(kIter, p)
+    if zNorm == zNormFull && zNormNext == zNormFull
         stopCase = 3;
         stopMsg = 'Stop due to non-sparsity; return inv(S) as MLE(Omega)';
     end
@@ -312,7 +326,13 @@ while 1  % cycle in sequence over diagonal block:
         valList = circshift(valList, -1);
         valList(end) = fvalNext;
         valDList = circshift(valDList, -1);
-        valDList(end) = log10(valInc);
+        if ~valInc
+            valDList(end) = valDList(end-1);
+            % msg = sprintf('valInc is zero at %d-th iterate.', kIter);
+            % warning(msg)
+        else
+            valDList(end) = log10(valInc);
+        end
         set(pltHfval, 'Xdata', kDIter, 'Ydata', valList);
         set(pltHfdval, 'Xdata', kDIter, 'Ydata', valDList);
         pause(.1);
@@ -323,6 +343,7 @@ while 1  % cycle in sequence over diagonal block:
         optStatus.OptimalValue = 0;
         optStatus.LastIncrement = -valInc;
         optStatus.ToleranceType = [tolType ' & ' evalType];
+        optStatus.IterationType = [iterType ' order'];
         optStatus.Blockl0Norm = zNorm;
         optStatus.Status = stopMsg;
     end
@@ -356,17 +377,17 @@ while 1  % cycle in sequence over diagonal block:
     if strcmp(evalType, 'val') | debugFlag
         fval = fvalNext;
     end
-    % save zNorm when iterating at multiplicity of p
-    if ~rem(kIter, p)
-        zNormPm = zNorm;
-    end
     % update dLnext
     dLprev = dLnext;
 end
 
 % restore original shape of Omega and Sigma
-Omega = retriOrder(Omega, dLnext, pPos);
-Sigma = retriOrder(Sigma, dLnext, pPos);
+Omega = orderRestore(Omega, dLnext, pPos);
+Sigma = orderRestore(Sigma, dLnext, pPos);
+if strcmp(iterType, 'random')
+    Omega = P' * Omega * P;
+    Sigma = P' * Sigma * P;
+end
 
 end % END of bcdpML
 
@@ -378,125 +399,86 @@ end % END of bcdpML
 function [tol, maxIter, tolType, evalType] = parseOptions(options)
 % Parsing the argument "options".
 
-if ~iscell(options)
-    if isnumeric(options)
-        tolVec = options;
-        strCell = {'rel', 'val'};
+    if ~iscell(options)
+        if isnumeric(options)
+            tolVec = options;
+            strCell = {'rel', 'val'};
+        else
+            tolVec = [1e-6 100];
+            strCell = {options};
+        end
     else
-        tolVec = [1e-6 100];
-        strCell = {options};
+        if iscellstr(options)
+            tolVec = [1e-6 100];
+            strCell = options;
+        else
+            tolVec = options{1};
+            strCell = options(2:end);
+        end
     end
-else
-    if iscellstr(options)
-        tolVec = [1e-6 100];
-        strCell = options;
-    else
-        tolVec = options{1};
-        strCell = options(2:end);
-    end
-end
 
-% set "tol" and "maxIter"
-if isscalar(tolVec)
-    if tolVec < 1
-        tol = tolVec;
-        maxIter = 100;
+    % set "tol" and "maxIter"
+    if isscalar(tolVec)
+        if tolVec < 1
+            tol = tolVec;
+            maxIter = 100;
+        else
+            maxIter = tolVec;
+            tol = 10e-6;
+        end
     else
-        maxIter = tolVec;
-        tol = 10e-6;
+        if tolVec(1) < 1
+            tol = tolVec(1);
+            maxIter = tolVec(2);
+        else
+            maxIter = tolVec(1);
+            tol = tolVec(2);
+        end
     end
-else
-    if tolVec(1) < 1
-        tol = tolVec(1);
-        maxIter = tolVec(2);
-    else
-        maxIter = tolVec(1);
-        tol = tolVec(2);
-    end
-end
 
-% set "tolType" and "evalType"
-if isscalar(strCell)
-    assert(any(strcmp({'abs', 'rel', 'val', 'var'}, strCell{1})), ...
-           'Argument "options" is not valid.')
-    switch strCell{1}
-      case {'abs', 'rel'}
-        tolType = strCell{1};
-        evalType = 'var';
-      case {'val', 'var'}
-        evalType = strCell{1};
-        tolType = 'rel';
+    % set "tolType" and "evalType"
+    if isscalar(strCell)
+        assert(any(strcmp({'abs', 'rel', 'val', 'var'}, strCell{1})), ...
+               'Argument "options" is not valid.')
+        switch strCell{1}
+          case {'abs', 'rel'}
+            tolType = strCell{1};
+            evalType = 'var';
+          case {'val', 'var'}
+            evalType = strCell{1};
+            tolType = 'rel';
+        end
+    else
+        assert(any(strcmp({'abs', 'rel', 'val', 'var'}, strCell{1})) | ...
+               any(strcmp({'abs', 'rel', 'val', 'var'}, strCell{2})), ...
+               'Argument "options" is not valid.')
+        switch strCell{1}
+          case {'abs', 'rel'}
+            tolType = strCell{1};
+            evalType = strCell{2};
+          case {'val', 'var'}
+            evalType = strCell{1};
+            tolType = strCell{2};
+        end
     end
-else
-    assert(any(strcmp({'abs', 'rel', 'val', 'var'}, strCell{1})) | ...
-           any(strcmp({'abs', 'rel', 'val', 'var'}, strCell{2})), ...
-           'Argument "options" is not valid.')
-    switch strCell{1}
-      case {'abs', 'rel'}
-        tolType = strCell{1};
-        evalType = strCell{2};
-      case {'val', 'var'}
-        evalType = strCell{1};
-        tolType = strCell{2};
-    end
-end
 
 end % END of parseOptions
 
-function [P, dLnext, pPos] = circPerm(dL, pPos)
-% Permutation matrix for digonal blocks that moves the k-th block to the
-% p-th position (i.e. OmegAa) and pushes the p-th block to the 1st.
-% e.g. [1 2 p-1 p] --> [p 1 2 3 p-1]
-
-d = sum(dL);
-p = length(dL);
-Id = eye(d, d);
-
-dLnext = circshift(dL, 1);
-pPos = circshift(pPos, 1);
-
-pBi = d - dL(p) + 1;
-P = [Id(pBi:d,:); Id(1:pBi-1,:)];
-
-end % END of bPerm
-
-function [P, dLnext, pPos] = kPerm(dL, k, pPos)
-% Permutation matrix for digonal blocks that moves the k-th block to the
-% p-th position (i.e. OmegAa) and pushes the p-th block to the 1st.
-% e.g. [1 2 k 3 p] --> [p 1 2 3 k]
-
-d = sum(dL);
-p = length(dL);
-Id = eye(d, d);
-
-dLnext = [dL(p) dL(1:k-1) dL(k+1:p-1) dL(k)];
-pPos = [pPos(p) pPos(1:k-1) pPos(k+1:p-1) pPos(k)];
-
-kBi = sum(dL(1:k-1)) + 1;  % start index of k-th block
-kBj = sum(dL(1:k));        % end index of k-th block
-pBj = d;
-pBi = d - dL(p) + 1;
-
-P = [Id(pBi:pBj,:); Id(1:kBi-1,:); Id(kBj+1:pBi-1,:); Id(kBi:kBj,:)];
-
-end % END of bPerm
-
-function matNew = retriOrder(mat, dL, pPos)
+function matNew = orderRestore(mat, dL, pPos)
 % Retrieve the shape indicated by the original dL.
 
-d = sum(dL);
-p = length(dL);
-assert(p == length(pPos), ...
-       'Error: the tracking pPos has a different length from dL!');
-idx1 = find(pPos == 1);
-upleft = sum(dL(1:idx1-1));
-matNew = circshift(mat, [-upleft -upleft]);
+    d = sum(dL);
+    p = length(dL);
+    assert(p == length(pPos), ...
+           'Error: the tracking pPos has a different length from dL!');
+    idx1 = find(pPos == 1);
+    upleft = sum(dL(1:idx1-1));
+    matNew = circshift(mat, [-upleft -upleft]);
 
-end % END of retriOrder
+end % END of orderRestore
 
 % function [fval, zNorm] = evalLoss(Omega, S, lambda, dL)
 % % Evaluate the cost function.
-% % Faster version: see "evalLossRe()"
 
 %     ldval = logdet(Omega, 'chol');
 %     fval = -ldval + trace(S * Omega);
@@ -511,20 +493,8 @@ end % END of retriOrder
 function fval = evalLoss(Omega, S, lambNorm)
 % Evaluate the cost function.
 
-ldval = logdet(Omega, 'chol');
-fval = -ldval + trace(S * Omega) + lambNorm;
-
-end % END of evalObjFunc
-
-function fval = evalLossRe(OmegAo, OmegAa, Ba, invOmegAo, So, Sa, Soa, lambNorm)
-% Evaluate the cost function via its dimensionally reducted form.
-
-ldval_OmAo = logdet(OmegAo, 'chol');
-ldval_OmAa = logdet(OmegAa - Ba'*invOmegAo*Ba, 'chol');
-
-fval = -ldval_OmAo - ldval_OmAa + ...
-       trace(So*OmegAo) + 2*trace(Soa'*Ba) + trace(Sa*OmegAa) + ...
-       lambNorm;
+    ldval = logdet(Omega, 'chol');
+    fval = -ldval + trace(S * Omega) + lambNorm;
 
 end % END of evalObjFunc
 
@@ -533,51 +503,51 @@ function val = logdet(X, method)
 % Notes:
 %   MEexception: "user:FunctionFailure"
 
-if nargin < 2
-    method = 'det';
-end
-assert(any(strcmpi({'eig', 'chol', 'det'}, method)), ...
-       'The argument "method" must be "eig", "chol" or "det".');
-
-switch method
-  case 'chol'
-    % MATLAB 2019a has a severe bug on "chol"!
-    % It fails on matrices with minimal eigenvalue larger than 5e-4!
-    [L, flag] = chol(X);
-    if flag % chol on a non-positive definite matrix
-        msgwarn = sprintf(['An approximation of log(det(Omega)) is computed'...
-                           ', due to %d number of eigenvalues '...
-                           'that are particularly close to 0.'], ...
-                          size(X,1)-flag+1);
-        warning(msg);
-
-        msgID = 'User:FunctionFailure';
-        msgtext = 'evalLoss(): chol() fails due to non-positive definitiness';
-        ME = MException(msgID,msgtext);
-        throw(ME);
+    if nargin < 2
+        method = 'det';
     end
-    val = 2*sum(log(diag(L)));
+    assert(any(strcmpi({'eig', 'chol', 'det'}, method)), ...
+           'The argument "method" must be "eig", "chol" or "det".');
 
-  case 'eig'
-    eigvalX = eig(X);
-    if any(eigvalX <= 0)
-        msgID = 'User:FunctionFailure';
-        msgtext = 'evalLoss(): eig() gives non-positive eigenvalues';
-        ME = MException(msgID,msgtext);
-        throw(ME);
-    end
-    val = log(prod(eigvalX));
+    switch method
+      case 'chol'
+        % MATLAB 2019a has a severe bug on "chol"!
+        % It fails on matrices with minimal eigenvalue larger than 5e-4!
+        [L, flag] = chol(X);
+        if flag % chol on a non-positive definite matrix
+            msgwarn = sprintf(['An approximation of log(det(Omega)) is computed'...
+                               ', due to %d number of eigenvalues '...
+                               'that are particularly close to 0.'], ...
+                              size(X,1)-flag+1);
+            warning(msgwarn);
 
-  case 'det'
-    % This method is not reliable when Omega is large, e.g. dim > 400.
-    val = log(det(X));
-    if isinf(val)  % det gives Inf value
-        msgID = 'User:FunctionFailure';
-        msgtext = 'evalLoss(): det() gives Inf values';
-        ME = MException(msgID,msgtext);
-        throw(ME);
+            msgID = 'User:FunctionFailure';
+            msgtext = 'evalLoss(): chol() fails due to non-positive definitiness';
+            ME = MException(msgID,msgtext);
+            throw(ME);
+        end
+        val = 2*sum(log(diag(L)));
+
+      case 'eig'
+        eigvalX = eig(X);
+        if any(eigvalX <= 0)
+            msgID = 'User:FunctionFailure';
+            msgtext = 'evalLoss(): eig() gives non-positive eigenvalues';
+            ME = MException(msgID,msgtext);
+            throw(ME);
+        end
+        val = log(prod(eigvalX));
+
+      case 'det'
+        % This method is not reliable when Omega is large, e.g. dim > 400.
+        val = log(det(X));
+        if isinf(val)  % det gives Inf value
+            msgID = 'User:FunctionFailure';
+            msgtext = 'evalLoss(): det() gives Inf values';
+            ME = MException(msgID,msgtext);
+            throw(ME);
+        end
     end
-end
 
 end % END of logdet
 
@@ -589,40 +559,40 @@ function X = qpMatCG(M, W, tol)
 % Moreover, in our case which maximizes tr(SX'MX) + 2 tr(X'W), it is
 % equivalent to solve MXS = -W, where S is symmetric and positive definite.
 
-[m, m1] = size(M);
-[m2, n] = size(W);
-assert((m == m1) & (m == m2), ...
-       'The dimensions of M and W fail to match!')
-if nargin < 3
-    tol = 1e-20;
-end
-
-% Initialization
-R = W;
-D = R;
-X = zeros(m, n);
-rho = trace(R'*R);
-
-% CG update
-for k = 0:1:m
-    % update X
-    alpha = rho / trace(D'*M*D);
-    % stop if possible
-    % [Warning]: should guarantee the decrease of loss function
-    if k == 0
-        alpha0rho0 = alpha*rho;
-    elseif abs(alpha*rho/alpha0rho0) < tol
-        break
+    [m, m1] = size(M);
+    [m2, n] = size(W);
+    assert((m == m1) & (m == m2), ...
+           'The dimensions of M and W fail to match!')
+    if nargin < 3
+        tol = 1e-20;
     end
-    X = X + alpha*D;  % X_k+1
 
-    % update variables for (k+1) iterate
-    R = R - alpha*M*D;
-    rho_p = trace(R'*R);
-    gamma = rho_p / rho;
-    D = R + gamma*D;
-    rho = rho_p;
-end
+    % Initialization
+    R = W;
+    D = R;
+    X = zeros(m, n);
+    rho = trace(R'*R);
+
+    % CG update
+    for k = 0:1:m
+        % update X
+        alpha = rho / trace(D'*M*D);
+        % stop if possible
+        % [Warning]: should guarantee the decrease of loss function
+        if k == 0
+            alpha0rho0 = alpha*rho;
+        elseif abs(alpha*rho/alpha0rho0) < tol
+            break
+        end
+        X = X + alpha*D;  % X_k+1
+
+        % update variables for (k+1) iterate
+        R = R - alpha*M*D;
+        rho_p = trace(R'*R);
+        gamma = rho_p / rho;
+        D = R + gamma*D;
+        rho = rho_p;
+    end
 
 end % END of qpMatCG
 
@@ -636,31 +606,53 @@ function val = l0norm(Omega, dL, type)
 % INPUTS:
 % 	  type  :  string; 'element' or 'block'
 
-if nargin < 3
-    type = 'element';
-end
-assert(any(strcmp({'element', 'block'}, type)), ...
-       'The argument "type" has to be either "element" or "block".');
+    if nargin < 3
+        type = 'element';
+    end
+    assert(any(strcmp({'element', 'block'}, type)), ...
+           'The argument "type" has to be either "element" or "block".');
 
-p = length(dL);
-d = sum(dL);
+    p = length(dL);
+    d = sum(dL);
 
-val = 0;
-for i = 1:p-1
-    for j = i+1:p
-        di = dL(i); dj = dL(j);
-        iIdx = sum(dL(1:i-1))+1:sum(dL(1:i));
-        jIdx = sum(dL(1:j-1))+1:sum(dL(1:j));
-        if any(Omega(iIdx, jIdx), 'all')
-            switch type
-              case 'element'
-                val = val + di*dj;
-              case 'block'
-                val = val + 1;
+    val = 0;
+    for i = 1:p-1
+        for j = i+1:p
+            di = dL(i); dj = dL(j);
+            iIdx = sum(dL(1:i-1))+1:sum(dL(1:i));
+            jIdx = sum(dL(1:j-1))+1:sum(dL(1:j));
+            if any(Omega(iIdx, jIdx), 'all')
+                switch type
+                  case 'element'
+                    val = val + di*dj;
+                  case 'block'
+                    val = val + 1;
+                end
             end
         end
     end
-end
-val = val*2;
+    val = val*2;
 
 end % END of l0norm
+
+function P = permMatrix(pPos, dL)
+% PERMMATRIX return a permutation matrix that permutes M block-wisely
+% according to pPos and partition dims dL.
+%    permuting map: 1:length(pPos) -> pPos
+%    M -> nM = P*M*P'
+%    nM -> M = P'*nM*P
+
+    d = sum(dL);
+    p = length(dL);
+    assert(p == length(pPos), 'pPos and dL fail to match!');
+
+    P = zeros(d, d);
+    Id = eye(d);
+    for k = 1:p
+        iIdxTo = sum(dL(pPos(1:k-1)))+1:sum(dL(pPos(1:k)));
+        korig = pPos(k);
+        iIdxFrom = sum(dL(1:korig-1))+1:sum(dL(1:korig));
+        P(iIdxTo, :) = Id(iIdxFrom, :);
+    end
+
+end % END of permMatrix
