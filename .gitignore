@@ -12,12 +12,13 @@ test.m
 temp.m
 tmp.m
 
-*.pdf
 *.mat
 
 archived/
 results/
 Goran/
+formula.*
+auto/
 
 todo.org
 README.html
