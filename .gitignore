@@ -3,7 +3,8 @@ GPATH
 GRTAGS
 GTAGS
 *~
-#*
+#*#
+.#*
 
 *-bak.m
 test*.m
@@ -19,3 +20,4 @@ results/
 Goran/
 
 todo.org
+README.html
