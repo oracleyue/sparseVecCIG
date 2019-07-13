@@ -1,10 +1,9 @@
 # Sparse Vector CIGs
 
 This is a fast algorithm to estimate sparse vector conditional independence
-graphs, by optimizing the following l0 penalized log-likelihood: <p
-align="center"> <img
-src="https://raw.githubusercontent.com/oracleyue/sparseVecCIG/master/img/log-likelihood.png"
-width="400"> </p> where S is the sample covariance matrix. The implemented
+graphs, by optimizing the following l0 penalized log-likelihood: 
+<p align="center"> <img src="/img/log-likelihood.png" width="400"> </p> 
+where S is the sample covariance matrix. The implemented
 algorithm is developed based on an early work [(Marjanovic & Solo, ICASSP
 2018)](https://ieeexplore.ieee.org/abstract/document/8461742).
 
