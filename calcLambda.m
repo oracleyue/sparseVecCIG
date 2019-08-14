@@ -34,9 +34,6 @@ if nargin < 6
 end
 assert(any(strcmp({'zyue', 'zyue-var', 'goran'}, algType)), ...
        'Argument "algType" must to "zyue" or "goran".');
-if strcmp(algType, 'goran')
-    addpath('./Goran');
-end
 
 % debug flags
 debugFlag = 0;
@@ -63,7 +60,7 @@ for k = 1:numL
         [OmegaHat, ~] = bcdSpML(S, dL, lambda, algOptions);
       case 'goran'
         [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, ...
-                                     algOptions(2), algOptions(1), 0);
+                                     algOptions(2), algOptions(1), 1);
     end
     estOmega{k} = OmegaHat;
 

@@ -2,6 +2,8 @@
 GPATH
 GRTAGS
 GTAGS
+.dropbox
+Icon?
 *~
 #*#
 .#*
@@ -16,6 +18,7 @@ tmp.m
 
 archived/
 results/
+articles/
 Goran/
 formula.*
 auto/

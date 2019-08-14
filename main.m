@@ -14,11 +14,11 @@ addpath('./Goran');  % if using Goran's algorithm
 rng(2);
 
 % data
-% load('./Goran/Omega_Goran.mat');
+load('./Goran/Omega_Goran.mat');
 % load('~/Workspace/data/data_p500d4449.mat');
-p = 100;
-dL = randi(5, p, 1)*3;
-Omega = sprandOm(dL, [.3 .8]);
+% p = 100;
+% dL = randi(5, p, 1)*3;
+% Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 N = 10 * d;
@@ -26,7 +26,7 @@ X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda = 0.2;   % 0.15 ~ 0.3
+lambda = 0.5;   % 0.15 ~ 0.3
 algName = 'zyue';
 algOpt = {[1e-3 50], 'rel', 'var'};
 
@@ -43,14 +43,14 @@ switch algName
 end
 toc(algTimer)
 
-% visualization
+%% visualization
 figure
 set(gcf,'color','white');
 subplot(1,2,1)
-imshowOm(Omega, 'spy', dL);
+imshowOm(Omega, 'raw');
 title('Original $\mathbf{\Omega}$', ...
-      'FontSize', 15, 'Interpreter','latex');
+      'FontSize', 12, 'Interpreter','latex');
 subplot(1,2,2)
-imshowOm(OmegaHat, 'spy', dL);
+imshowOm(OmegaHat, 'raw');
 title('Estimation $\mathbf{\widehat{\Omega}}$', ...
-      'FontSize', 15, 'Interpreter','latex');
+      'FontSize', 12, 'Interpreter','latex');
