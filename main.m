@@ -8,13 +8,13 @@
 clear all; close all;
 
 % search paths
-addpath('./Goran');  % if using Goran's algorithm
+addpath('./goran');  % if using Goran's algorithm
 
 % init
 rng(2);
 
 % data
-load('./Goran/Omega_Goran.mat');
+load('./goran/Omega_Goran.mat');
 % load('~/Workspace/data/data_p500d4449.mat');
 % p = 100;
 % dL = randi(5, p, 1)*3;

@@ -8,7 +8,7 @@
 clear all; close all;
 
 % search paths
-addpath('./Goran');  % if using Goran's algorithm
+addpath('./goran');  % if using Goran's algorithm
 
 % init seed
 rng(2);

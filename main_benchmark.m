@@ -14,7 +14,7 @@
 clear all; close all;
 
 % Search paths
-addpath('./Goran');  % using Goran's
+addpath('./goran');  % using Goran's
 
 % Init seed
 rng(2)

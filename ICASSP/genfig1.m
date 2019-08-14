@@ -9,13 +9,13 @@ clear all; close all;
 
 % search paths
 addpath('../');       % project root
-addpath('../Goran');  % Goran's algorithm
+addpath('../goran');  % Goran's algorithm
 
 % init
 rng(2);
 
 % data
-load('../Goran/Omega_Goran.mat');
+load('../goran/Omega_Goran.mat');
 % p = 100;
 % dL = randi(5, p, 1)*3;
 % Omega = sprandOm(dL, [.3 .8]);
