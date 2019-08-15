@@ -275,7 +275,7 @@ while 1  % cycle in sequence over diagonal block:
         try
             fvalNext = evalLoss(OmTemp, S, lambda*zNorm);
         catch ME % fail to evaluate loss functions (chol() or det())
-        	switch ME.identifier
+            switch ME.identifier
               case 'User:FunctionFailure'
                 fvalNext = 0;  % 0 indicates irregular likelihood
               otherwise
