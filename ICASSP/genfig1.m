@@ -21,13 +21,13 @@ load('../goran/Omega_Goran.mat');
 % Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
-N = 10 * d;
+N = 5 * d;
 X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda0 = 0.24245;
-lambda1 = 0.046416;
+lambda0 = 0.4924;  % 0.24245;
+lambda1 = 0.1512;  % 0.04642;
 algOpt = {[1e-3 10], 'rel', 'var'};
 
 % estimation

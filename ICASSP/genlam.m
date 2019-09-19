@@ -14,10 +14,10 @@ addpath('../goran');  % Goran's algorithm
 rng(2);
 
 % data
-load('../goran/Omega_Goran.mat');
-% p = 100;
-% dL = randi(5, p, 1)*3;
-% Omega = sprandOm(dL, [.3 .8]);
+% load('../goran/Omega_Goran.mat');
+p = 8;
+dL = randi(5, p, 1)*3;
+Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 N = 10 * d;
@@ -26,9 +26,9 @@ S = cov(X, 1);  % sample cov, normalized by N
 
 % Setup
 lambdaList = logspace(-2, 0, 40);  % range of lambdas
-algType = 'goran';    % choose algorithm
-icType = 'BIC';      % choose information criterion
-tolOpt = [1e-3, 10]; % "options" from "bcdSpML.m"
+algType = 'zyue';     % choose algorithm
+icType = 'BIC';       % choose information criterion
+tolOpt = [1e-3, 10];  % "options" from "bcdSpML.m"
 
 % Estimation
 algTimer = tic;

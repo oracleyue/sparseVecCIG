@@ -10,7 +10,7 @@ function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
 %   lambdaList :   positive real vector of lambdas
 %   icType     :   string (default: 'BIC'); set 'AIC' or 'BIC'
 %   algType    :   string; "zyue" or "goran"
-%   algOptions :   the "options" from "bcdSpML.m"
+%   algOptions :   the "options" for "bcdSpML.m" or "spMLE.m"
 %
 % OUTPUT:
 %   lambda     :   scalar, the best that minimises BIC values (if
@@ -32,8 +32,11 @@ assert(any(strcmp({'AIC', 'BIC'}, icType)), ...
 if nargin < 6
     algType = 'zyue';
 end
-assert(any(strcmp({'zyue', 'zyue-var', 'goran'}, algType)), ...
+assert(any(strcmp({'zyue', 'goran'}, algType)), ...
        'Argument "algType" must to "zyue" or "goran".');
+precision = algOptions{1};
+errorType = algOptions(2:3);
+perm = algOptions{4};
 
 % debug flags
 debugFlag = 0;
@@ -57,10 +60,13 @@ for k = 1:numL
     lambda = lambdaList(k);
     switch algType
       case 'zyue'
-        [OmegaHat, ~] = bcdSpML(S, dL, lambda, algOptions);
+        % [OmegaHat, ~] = bcdSpML(S, dL, lambda, algOptions(1:3));
+        [OmegaHat, ~] = spMLE(S, dL, lambda, perm, ...
+                              'precision', precision, ...
+                              'errorType', errorType);
       case 'goran'
         [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, ...
-                                     algOptions(2), algOptions(1), 1);
+                                     precision(2), precision(1), 1);
     end
     estOmega{k} = OmegaHat;
 
