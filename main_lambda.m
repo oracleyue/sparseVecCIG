@@ -14,10 +14,10 @@ addpath('./goran');  % if using Goran's algorithm
 rng(2);
 
 % Data
-load('./Goran/Omega_Goran.mat'); p = 5;
-% p = 6;
-% dL = randi(5, p, 1)*3;
-% Omega = sprandOm(dL, [.3 .8]);
+% load('./Goran/Omega_Goran.mat'); p = 5;
+p = 6;
+dL = randi(5, p, 1)*3;
+Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
 N = 10 * d;
@@ -29,8 +29,8 @@ lambdaList = logspace(-2, 0, 40);  % range of lambdas
 algType = 'zyue';    % choose algorithm
 icType = 'BIC';      % choose information criterion
 % "options" for "bcdSpML.m" or "spMLE.m"
-perm = 1:p;
-% rng('shuffle'); perm = randperm(p);
+% perm = 1:p;
+rng('shuffle'); perm = randperm(p);
 options = {[1e-3, 50], 'rel', 'var', perm};
 
 % Estimation

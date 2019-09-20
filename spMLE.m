@@ -127,6 +127,8 @@ tol = parsePrecition(precision, defaultPrecision, 'tol');
 maxIter = parsePrecition(precision, defaultPrecision, 'maxIter');
 tolType = parseErrorType(errorType, defaultErrorType, 'tolType');
 evalType = parseErrorType(errorType, defaultErrorType, 'evalType');
+% boolean
+isPermuted = any(perm - [1:p]);
 
 % Initialization
 Sigma = zeros(d,d);
@@ -139,7 +141,7 @@ zNorm = 0;           % block l0 norm of Omega (no diagonal)
 zNormFull = p^2 - p; % block l0 norm of full Omega matrix
 switch initType
   case 'fixed'
-    if any(perm - [1:p])
+    if isPermuted
         P = permMatrix(perm, dL);
         dL = dL(perm);
         S = P*S*P';
@@ -162,9 +164,9 @@ for k = 1:p
     fval = fval + log(det(Sk));
 end
 dLprev = dL;
-% pPos relates dLprev to dL, which allows us to rearrange the solution
+% posTracker relates dLprev to dL, which allows us to rearrange the solution
 % according to the original order of matrix blocks.
-pPos = 1:p;
+posTracker = 1:p;
 
 if debugFlag
     kDIter = -100:1:0;
@@ -193,7 +195,7 @@ while 1  % cycle in sequence over diagonal block:
 
     % update dLnext and permutation matrix to update Mo
     dLnext = circshift(dLprev, 1);
-    pPos = circshift(pPos, 1);
+    posTracker = circshift(posTracker, 1);
 
     % update Omega (being permuted)
     Omega = circshift(Omega, [dLprev(p) dLprev(p)]);
@@ -205,7 +207,7 @@ while 1  % cycle in sequence over diagonal block:
     Soa = S(1:end-dLnext(p), end-dLnext(p)+1:end);
     Sa = S(d-dLnext(p)+1:d, d-dLnext(p)+1:d);
     % retrieve inv(Sa);
-    Ta = invSa{pPos(p)};
+    Ta = invSa{posTracker(p)};
 
     % permute Sigma
     Sigma = circshift(Sigma, [dLprev(p) dLprev(p)]);
@@ -405,9 +407,9 @@ while 1  % cycle in sequence over diagonal block:
 end
 
 % restore original shape of Omega and Sigma
-Omega = orderRestore(Omega, dLnext, pPos);
-Sigma = orderRestore(Sigma, dLnext, pPos);
-if strcmp(initType, 'random')
+Omega = orderRestore(Omega, dLnext, posTracker);
+Sigma = orderRestore(Sigma, dLnext, posTracker);
+if isPermuted
     Omega = P' * Omega * P;
     Sigma = P' * Sigma * P;
 end
@@ -484,14 +486,14 @@ function res = parseErrorType(errorType, default, name)
     end
 end % END of parseErrorType
 
-function matNew = orderRestore(mat, dL, pPos)
+function matNew = orderRestore(mat, dL, posTracker)
 % Retrieve the shape indicated by the original dL.
 
     d = sum(dL);
     p = length(dL);
-    assert(p == length(pPos), ...
-           'Error: the tracking pPos has a different length from dL!');
-    idx1 = find(pPos == 1);
+    assert(p == length(posTracker), ...
+           'Error: the tracking posTracker has a different length from dL!');
+    idx1 = find(posTracker == 1);
     upleft = sum(dL(1:idx1-1));
     matNew = circshift(mat, [-upleft -upleft]);
 
@@ -655,22 +657,22 @@ function val = l0norm(Omega, dL, type)
 
 end % END of l0norm
 
-function P = permMatrix(pPos, dL)
+function P = permMatrix(posTracker, dL)
 % PERMMATRIX return a permutation matrix that permutes M block-wisely
-% according to pPos and partition dims dL.
-%    permuting map: 1:length(pPos) -> pPos
+% according to posTracker and partition dims dL.
+%    permuting map: 1:length(posTracker) -> posTracker
 %    M -> nM = P*M*P'
 %    nM -> M = P'*nM*P
 
     d = sum(dL);
     p = length(dL);
-    assert(p == length(pPos), 'pPos and dL fail to match!');
+    assert(p == length(posTracker), 'posTracker and dL fail to match!');
 
     P = zeros(d, d);
     Id = eye(d);
     for k = 1:p
-        iIdxTo = sum(dL(pPos(1:k-1)))+1:sum(dL(pPos(1:k)));
-        korig = pPos(k);
+        iIdxTo = sum(dL(posTracker(1:k-1)))+1:sum(dL(posTracker(1:k)));
+        korig = posTracker(k);
         iIdxFrom = sum(dL(1:korig-1))+1:sum(dL(1:korig));
         P(iIdxTo, :) = Id(iIdxFrom, :);
     end
