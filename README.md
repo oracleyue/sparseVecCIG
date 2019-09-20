@@ -14,7 +14,8 @@ A detailed article is in preparation.
 
 ## List of functions and scripts
 
-Function: 
+Functions: 
+
 + model estimation and selection
 
   - `spMLE.m`: the main funciton to solve the optimization problem.
