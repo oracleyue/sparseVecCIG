@@ -20,9 +20,9 @@ function [Omega, Sigma, optStatus] = spMLE(S, dL, lambda, varargin)
 %      - tol     :   0 < tol < 1; tolerance to stop iteration
 %      - maxIter :   integer > 1; force to stop after maxIter iterations
 %   'errorType'  :   char or cell: {tolType, evalType}, tolType, evalType
-%      - tolType :   char; 'abs' or 'rel'
+%      - tolType :   char: 'abs' or 'rel'
 %                    choose absolute/relative errors in stopping conditions
-%      - evalType:   char; 'val' or 'var'
+%      - evalType:   char: 'val' or 'var'
 %                    choose to evaluate convergence of loss functions or variables
 %   'initType'   :   char: 'fixed', 'random'
 %      - 'fixed' :   use "perm" if provided, or default "perm"
@@ -103,6 +103,7 @@ defaultPrecision= [1e-3, 20];
 defaultErrorType= {'rel', 'var'};
 defaultInitType = 'fixed';
 % validating functions
+validPerm = @(x) isnumeric(x) || isempty(x);
 validLambda = @(x) isnumeric(x) && isscalar(x) && (x>0);
 validPrecision = @(x) isnumeric(x) && isvector(x);
 validErrorType = @(x) ischar(x) || iscellstr(x);
@@ -112,7 +113,7 @@ parser = inputParser;
 addRequired(parser, 'S', @isnumeric);
 addRequired(parser, 'dL', @isnumeric);
 addRequired(parser, 'lambda', validLambda);
-addOptional(parser, 'perm', defaultPerm, @isnumeric);
+addOptional(parser, 'perm', defaultPerm, validPerm);
 addParameter(parser, 'precision', defaultPrecision, validPrecision);
 addParameter(parser, 'errorType', defaultErrorType, validErrorType);
 addParameter(parser, 'initType', defaultInitType, validInitType);
@@ -127,8 +128,13 @@ tol = parsePrecition(precision, defaultPrecision, 'tol');
 maxIter = parsePrecition(precision, defaultPrecision, 'maxIter');
 tolType = parseErrorType(errorType, defaultErrorType, 'tolType');
 evalType = parseErrorType(errorType, defaultErrorType, 'evalType');
-% boolean
-isPermuted = any(perm - [1:p]);
+% bool for whether init permutation is performed
+if isempty(perm)
+    isPermuted = 0;
+    perm = 1:p;
+else
+    isPermuted = any(perm - [1:p]);
+end
 
 % Initialization
 Sigma = zeros(d,d);

@@ -8,35 +8,40 @@
 clear all; close all;
 
 % search paths
-addpath('../');       % project root
-addpath('../goran');  % Goran's algorithm
+addpath('../');
+addpath('../goran');
+% Due to copyright issues, the github repository doesn't include Goran
+% Marjanovic's codes (i.e. the folder "goran"). You may contact the
+% authors in
+% /Marjanovic, G., & Solo, V. (2018). Vector $l_0$ Sparse Conditional
+%  Independence Graphs. 2018 IEEE International Conference on Acoustics,
+%  Speech and Signal Processing (ICASSP), 2731–2735. IEEE./
+% for their codes.
 
 % init
 rng(2);
 
 % data
-load('../goran/Omega_Goran.mat');
-% p = 100;
-% dL = randi(5, p, 1)*3;
-% Omega = sprandOm(dL, [.3 .8]);
+load('../data/Omega_Goran.mat');
 Sigma = inv(Omega);
 d = sum(dL);
-N = 5 * d;
+N = 10 * d;
 X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % setup
-lambda0 = 0.4924;  % 0.24245;
-lambda1 = 0.1512;  % 0.04642;
-algOpt = {[1e-3 10], 'rel', 'var'};
+lambda0 = 0.5;
+lambda1 = 0.14;
+precision = [1e-3 10];
 
 % estimation
 algTimer = tic;
 % quick solver
-[OmHatL0, ~, optStatus] = bcdSpML(S, dL, lambda0, algOpt);
+[OmHatL0, ~, optStatus] = spMLE(S, dL, lambda0, 'precision', precision);
 disp('Optimization status:'); disp(optStatus)
 % Goran's solver for l1
-[~, ~, OmHatL1] = Algorithm(speye(d), S, dL, lambda1, 10, 1e-3, 1);
+[~, ~, OmHatL1] = Algorithm(speye(d), S, dL, lambda1, ...
+                            precision(2), precision(1), 1);
 
 % visualization
 fig_hl = figure;

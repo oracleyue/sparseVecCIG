@@ -13,7 +13,7 @@ clear all; close all;
 
 % Search paths
 addpath('../');       % project root
-addpath('../goran');  % using Goran's
+addpath('../goran');  % using Goran's codes
 
 % Init seed
 rng(2)
@@ -57,13 +57,13 @@ for k = length(pList)
 
     fprintf('  [%2d]: #blocks=%2d, dim=%3d\n', k, p, d);
 
-    tolOpt = [1e-3, 10];
+    algOpt = setOptions('precision', [1e-3, 10]);
     % ML with different lambdas
     [lambdaZ, ~, ICsZ, eTimeZ] = calcLambda(S, dL, N, lambdaList, ...
-                                            'BIC', 'zyue', tolOpt);
+                                            'BIC', 'zyue', algOpt);
     fprintf('        CG   : %.6fs \n', sum(eTimeZ));
     [lambdaG, ~, ICsG, eTimeG] = calcLambda(S, dL, N, lambdaList, ...
-                                            'BIC', 'goran', tolOpt);
+                                            'BIC', 'goran', algOpt);
     fprintf('        Goran: %.6fs \n', sum(eTimeG));
 
     lambdaBest(:,k) = [lambdaZ; lambdaG];

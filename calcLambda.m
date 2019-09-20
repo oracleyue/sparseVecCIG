@@ -1,5 +1,5 @@
 function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
-                                                    icType, algType, algOptions)
+                                                    icType, algType, algOpt)
 % CALCLAMBDA computes the BIC or AIC criterion to determine lambda,
 % i.e. the regularization parameter for l0-penalized ML.
 %
@@ -10,7 +10,8 @@ function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
 %   lambdaList :   positive real vector of lambdas
 %   icType     :   string (default: 'BIC'); set 'AIC' or 'BIC'
 %   algType    :   string; "zyue" or "goran"
-%   algOptions :   the "options" for "bcdSpML.m" or "spMLE.m"
+%   algOpt     :   struct with members "perm", "precision", "errorType",
+%                  and "initType"; refer to "spMLE.m" for their details.
 %
 % OUTPUT:
 %   lambda     :   scalar, the best that minimises BIC values (if
@@ -20,7 +21,7 @@ function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
 %   eTime      :   real vector of time costs for each lambda
 
 % Copyright [2019] <oracleyue>
-% Last modified on 24 Jun 2019
+% Last modified on 20 Sep 2019
 
 
 % parse arguments
@@ -34,9 +35,8 @@ if nargin < 6
 end
 assert(any(strcmp({'zyue', 'goran'}, algType)), ...
        'Argument "algType" must to "zyue" or "goran".');
-precision = algOptions{1};
-errorType = algOptions(2:3);
-perm = algOptions{4};
+assert(isstruct(algOpt), ['Argument "algOpt" is NOT valid. Recommend to ' ...
+                    'use "setOptions() to generate one."']);
 
 % debug flags
 debugFlag = 0;
@@ -45,6 +45,9 @@ debugFlag = 0;
 p = length(dL);
 d = sum(dL);
 numL = length(lambdaList);
+if ~exist('perm')
+    perm = 1:p;
+end
 
 % initialize criterion values
 vecIC = zeros(numL, 1);
@@ -60,13 +63,14 @@ for k = 1:numL
     lambda = lambdaList(k);
     switch algType
       case 'zyue'
-        % [OmegaHat, ~] = bcdSpML(S, dL, lambda, algOptions(1:3));
-        [OmegaHat, ~] = spMLE(S, dL, lambda, perm, ...
-                              'precision', precision, ...
-                              'errorType', errorType);
+        [OmegaHat, ~] = spMLE(S, dL, lambda, algOpt.perm, ...
+                              'precision', algOpt.precision, ...
+                              'errorType', algOpt.errorType, ...
+                              'initType',  algOpt.initType);
       case 'goran'
         [~, ~, OmegaHat] = Algorithm(speye(d), S, dL, lambda, ...
-                                     precision(2), precision(1), 1);
+                                     algOpt.precision(2), algOpt.precision(1), ...
+                                     algOpt.penalty);
     end
     estOmega{k} = OmegaHat;
 

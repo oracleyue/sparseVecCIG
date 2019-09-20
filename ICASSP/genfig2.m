@@ -22,9 +22,6 @@ alpha = .08;
 
 datTimeZ = eTimeMatrix(1:numL, :);
 datTimeG = eTimeMatrix(numL+1:2*numL, :);
-datTimeZ = log10(datTimeZ);
-datTimeG = log10(datTimeG);
-eTime = log10(eTime);
 meanTimeZ = mean(datTimeZ);
 stdTimeZ  = std(datTimeZ);
 meanTimeG = mean(datTimeG);
@@ -32,11 +29,11 @@ stdTimeG  = std(datTimeG);
 
 switch xType
   case 'blk'    % x-axis: #diagonal blocks
-    plot(pList, (meanTimeZ), 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
+    plot(pList, log10(meanTimeZ), 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
     hold on
-    plot(pList, (meanTimeG), 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
-    plot(pList, (eTime(1,:)), '*', 'Color', cmap(1,:));
-    plot(pList, (eTime(2,:)), '*', 'Color', cmap(2,:));
+    plot(pList, log10(meanTimeG), 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
+    plot(pList, log10(eTime(1,:)), '*', 'Color', cmap(1,:));
+    plot(pList, log10(eTime(2,:)), '*', 'Color', cmap(2,:));
     xlim([min(pList), max(pList)]);
     xlabel('#blocks on diagonal');
     ylabel('CPU time in log10 (s)');
@@ -44,12 +41,15 @@ switch xType
     % draw deviation region
     polyX = [pList fliplr(pList)];
     polyYZ = [meanTimeZ-stdTimeZ fliplr(meanTimeZ+stdTimeZ)];
-    patchZ = fill(polyX, polyYZ, grayZ);
+    log10polyYZ = log10(polyYZ);
+    ylim([-3 3]); log10polyYZ(1) = -3; % since polyYZ is log10 of a negative value
+    patchZ = fill(polyX, log10polyYZ, grayZ);
     set(patchZ, 'edgecolor', 'none');
     set(patchZ, 'FaceAlpha', alpha);
     polyYG = [meanTimeG-stdTimeG fliplr(meanTimeG+stdTimeG)];
-    patchG = fill(polyX, polyYG, grayG);
-    set(patchG, 'edgecolor', 'none');log10
+    log10polyYG = log10(polyYG);
+    patchG = fill(polyX, log10polyYG, grayG);
+    set(patchG, 'edgecolor', 'none');
     set(patchG, 'FaceAlpha', alpha);
 
     leg_hl = legend('MLCG', 'Goran', 'MLCG (best)', ...
@@ -58,24 +58,26 @@ switch xType
     set(leg_hl, 'string', legstr(1:4))
 
   case 'dim'    % x-axis: dimension of X
-    plot(dList, (meanTimeZ), 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
+    plot(dList, log10(meanTimeZ), 'o--', 'Color', cmap(1,:), 'LineWidth', 1.2);
     hold on
-    plot(dList, (meanTimeG), 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
-    plot(dList, (eTime(1,:)), '*', 'Color', cmap(1,:));
-    plot(dList, (eTime(2,:)), '*', 'Color', cmap(2,:));
+    plot(dList, log10(meanTimeG), 's--', 'Color', cmap(2,:), 'LineWidth', 1.2);
+    plot(dList, log10(eTime(1,:)), '*', 'Color', cmap(1,:));
+    plot(dList, log10(eTime(2,:)), '*', 'Color', cmap(2,:));
     xlim([min(dList), max(dList)]);
     xlabel('dimensions');
     ylabel('CPU time in log10 (s)');
 
-    % draw deviation regionlog10
+    % draw deviation region
     polyX = [dList fliplr(dList)];
     polyYZ = [meanTimeZ-stdTimeZ fliplr(meanTimeZ+stdTimeZ)];
-    ylim([-3 3]); polyYZ(1) = -3; % since polyYZ is log10 of a negative value
-    patchZ = fill(polyX, polyYZ, grayZ);
+    log10polyYZ = log10(polyYZ);
+    ylim([-3 3]); log10polyYZ(1) = -3; % since polyYZ is log10 of a negative value
+    patchZ = fill(polyX, log10polyYZ, grayZ);
     set(patchZ, 'edgecolor', 'none');
     set(patchZ, 'FaceAlpha', alpha);
     polyYG = [meanTimeG-stdTimeG fliplr(meanTimeG+stdTimeG)];
-    patchG = fill(polyX, polyYG, grayG);
+    log10polyYG = log10(polyYG);
+    patchG = fill(polyX, log10polyYG, grayG);
     set(patchG, 'edgecolor', 'none');
     set(patchG, 'FaceAlpha', alpha);
 
@@ -83,10 +85,10 @@ switch xType
                     'Goran (best)', 'location', 'northwest');
     legstr = get(leg_hl, 'string');
     set(leg_hl, 'string', legstr(1:4))
-endlog10
+end
 
 %% save as pdf
 pos = [3.5417 4.3021 4 2.5];
 set(fig_hl,'Units','Inches', 'Position', pos);
 set(fig_hl,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)])
-print(fig_hl, 'bmk-plot', '-dpdf', '-r0')
+print(fig_hl, 'bmk-log', '-dpdf', '-r0')

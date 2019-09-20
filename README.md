@@ -14,31 +14,37 @@ A detailed article is in preparation.
 
 ## List of functions and scripts
 
-Core functions:
+Function: 
++ model estimation and selection
 
-- `bcdSpML.m`: the main funciton to solve the optimization problem.
+  - `spMLE.m`: the main funciton to solve the optimization problem.
 
-- `calcLambda.m`: chooses the "optimal" lambda (the regularization
-  parameter) via AIC or BIC criterion.
+  - `calcLambda.m`: chooses the "optimal" lambda (the regularization
+    parameter) via AIC or BIC criterion.
+    
+    - `setOptions.m`: a quick/easy interface to generate the argument
+      `algOpt` for `calcLambda()` calls.
+    
++ random model generation and visualization
   
-- `sprandOm.m`: randomly generate sparse inverse covariance matrix Omega.
+  - `sprandOm.m`: randomly generate sparse inverse covariance matrix Omega.
   
-- `imshowOm.m`: an assistant function to visualize matrix Omega to check
-  its sparsity structure.
+  - `imshowOm.m`: an assistant function to visualize matrix Omega to check
+    its sparsity structure.
   
 Demo scripts:
 
-- `main.m`: a simple script to use `bcdSpML()` to estimate sparse Omega.
+- `main.m`: a simple script to use `spMLE()` to estimate sparse Omega.
 
 - `main_lambda.m`: a simple demo to use AIC/BIC to choose an "optimal"
-  lambda.
+  lambda by calling `calcLambda()`.
   
-- `benchmark_single.m` and `benchmark_multiple.m`: scripts to benchmark
-  computation time for our algorithm and the Goran Marjanovic's algorithm
+- `main_benchmark.m`: a script to benchmark computation time for our
+  algorithm and the Goran Marjanovic's algorithm
   ([link](https://ieeexplore.ieee.org/abstract/document/8461742)). Here we
   didn't include Goran's codes due to copy right issues. One may contact
-  the original authors to get their codes, and place in the folder
-  `./Goran/` to run these two scripts.
+  the authors to get their codes, and place them in the folder `./goran/`
+  in order to run this script.
   
   
   
