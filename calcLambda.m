@@ -11,7 +11,7 @@ function [lambda, Omega, vecIC, eTime] = calcLambda(S, dL, N, lambdaList, ...
 %   icType     :   string (default: 'BIC'); set 'AIC' or 'BIC'
 %   algType    :   string; "zyue" or "goran"
 %   algOpt     :   struct with members "perm", "precision", "errorType",
-%                  and "initType"; refer to "spMLE.m" for their details.
+%                  "initType", and "penalty"; refer to "spMLE.m" for their details.
 %
 % OUTPUT:
 %   lambda     :   scalar, the best that minimises BIC values (if

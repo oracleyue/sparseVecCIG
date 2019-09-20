@@ -19,9 +19,10 @@ function opt = setOptions(varargin)
 %   'initType'   :   char: 'fixed', 'random'
 %      - 'fixed' :   use "perm" if provided, or default "perm"
 %      - 'random':   use a random permutation in initialization
+%   'penalty'    :   0 or 1; corresponds to l0-penaly or l1-penaly
 %
 % OUTPUT:
-%   opt          :   struct; valid for "algOptions"
+%   opt          :   struct; the argument "algOpt" for "calcLambda()"
 
 % Copyright (c) 2015-2017, Zuogong YUE
 % Author: Zuogong YUE <oracleyue@gmail.com>
