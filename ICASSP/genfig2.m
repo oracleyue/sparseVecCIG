@@ -64,8 +64,8 @@ switch xType
     plot(dList, (eTime(1,:)), '*', 'Color', cmap(1,:));
     plot(dList, (eTime(2,:)), '*', 'Color', cmap(2,:));
     xlim([min(dList), max(dList)]);
-    xlabel('dimensions');
-    ylabel('CPU time in log10 (s)');
+    xlabel('total dimension $d$', 'interpreter','latex');
+    ylabel('CPU time in $\log_{10}$ (s)', 'interpreter','latex');
 
     % draw deviation regionlog10
     polyX = [dList fliplr(dList)];
@@ -79,8 +79,8 @@ switch xType
     set(patchG, 'edgecolor', 'none');
     set(patchG, 'FaceAlpha', alpha);
 
-    leg_hl = legend('MLCG', 'Goran', 'MLCG (best)', ...
-                    'Goran (best)', 'location', 'northwest');
+    leg_hl = legend('FB$l_0$-SIC', 'B$l_0$-SIC', 'FB$l_0$-SIC (best)', ...
+                    'B$l_0$-SIC (best)', 'location', 'northwest', 'interpreter','latex');
     legstr = get(leg_hl, 'string');
     set(leg_hl, 'string', legstr(1:4))
 end
