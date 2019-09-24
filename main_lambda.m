@@ -14,24 +14,24 @@ addpath('./goran');  % if using Goran's algorithm
 rng(2);
 
 % Data
-% load('./data/Omega_Goran.mat'); p = 5;
-p = 6;
-dL = randi(5, p, 1)*3;
-Omega = sprandOm(dL, [.3 .8]);
+load('./data/Omega_Goran.mat'); p = 5;
+% p = 6;
+% dL = randi(5, p, 1)*3;
+% Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
-N = 10 * d;
+N = round(.5 * d);
 X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 
 % Setup
-lambdaList = logspace(-2, 0, 40);    % range of lambdas
+lambdaList = logspace(log10(3), log10(4), 40);    % range of lambdas
 algType = 'zyue';    % choose algorithm
 icType = 'BIC';      % choose information criterion
 perm = [];
 % rng('shuffle'); perm = randperm(p);  % randomize iteration order
 algOpt = setOptions('perm', perm, 'initType', 'fixed', ...
-                            'precision', [1e-3, 50], ...
+                            'precision', [1e-4, 100], ...
                             'errorType', {'rel', 'var'});
 % if use all default, simply run "algOpt = setOptions()".
 

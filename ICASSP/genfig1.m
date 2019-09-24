@@ -39,23 +39,26 @@ algTimer = tic;
 % quick solver
 [OmHatL0, ~, optStatus] = spMLE(S, dL, lambda0, 'precision', precision);
 disp('Optimization status:'); disp(optStatus)
-% Goran's solver for l1
-[~, ~, OmHatL1] = Algorithm(speye(d), S, dL, lambda1, ...
-                            precision(2), precision(1), 1);
+% Goran's l0 solver (default)
+[~, ~, OmHatL0g] = Algorithm(speye(d), S, dL, lambda0, ...
+                             precision(2), precision(1), 0);
+% Goran's solver using l1 modification
+[~, ~, OmHatL1g] = Algorithm(speye(d), S, dL, lambda1, ...
+                             precision(2), precision(1), 1);
 
 % visualization
 fig_hl = figure;
 set(gcf,'color','white');
 subplot(1,3,1)
-imshowOm(Omega, 'raw');
-title('Ground truth $\mathbf{\Omega}$', ...
+imshowOm(OmHatL0, 'raw');
+title('Estimation $\mathbf{\widehat{\Omega}}$', ...
       'FontSize', 12, 'Interpreter','latex');
 subplot(1,3,2)
-imshowOm(OmHatL0, 'raw');
+imshowOm(OmHatL0g, 'raw');
 title('Estimation $\mathbf{\widehat{\Omega}}_{l_0}$', ...
       'FontSize', 12, 'Interpreter','latex');
 subplot(1,3,3)
-imshowOm(OmHatL1, 'raw');
+imshowOm(OmHatL1g, 'raw');
 title('Estimation $\mathbf{\widehat{\Omega}}_{l_1}$', ...
       'FontSize', 12, 'Interpreter','latex');
 

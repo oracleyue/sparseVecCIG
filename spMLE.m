@@ -1,13 +1,10 @@
 function [Omega, Sigma, optStatus] = spMLE(S, dL, lambda, varargin)
-% SPMLE uese block-wise coordinate decent method to solve group-l0/l1
+% SPMLE uese block-wise coordinate decent method to solve group-l0
 % penalised maximum likelihood estimation. It optimises the following:
 %
 %    MAX(Omega) -log det(Omega) + tr(S Omega) + lambda ||Omega||_0
-% or,
-%    MAX(Omega) -log det(Omega) + tr(S Omega) + lambda ||Omega||_1
 %
-% where ||Omega||_0 = \sum{I(Omega_ij \neq 0)}, and
-%       ||Omega||_1 = \sum{||Omega^[k]||_F} with k denotes group indexes.
+% where ||Omega||_0 = \sum{I(Omega_ij \neq 0)}.
 %
 % INPUT:
 %   S            :   (dxd) sample covariance matrix, normalised by T
@@ -300,6 +297,23 @@ while 1  % cycle in sequence over diagonal block:
     SigTemp(iIdx:d, 1:iIdx-1) = Ga';
     SigTemp(iIdx:d, iIdx:d) = Sa;
 
+    % check positive definiteness
+    if debugFlag
+        try
+            pdflag = checkSPD(OmTemp);
+        catch ME
+            switch ME.identifier
+              case 'User:NonPositiveDefinite'
+                warning(['The update of Omega in iteration no longer stays ' ...
+                         'positive definite. Consider increasing the regularization ' ...
+                         'parameter.'])
+                fprintf('INFO: error catched at iteration %d', kIter)
+              otherwise
+                rethrow(ME)
+            end
+        end
+    end
+
     % Stopping Criteria
     stopCase = 0;
     if strcmp(evalType, 'val') | debugFlag
@@ -346,10 +360,19 @@ while 1  % cycle in sequence over diagonal block:
         stopCase = 2;
         stopMsg = 'Run out of maximal iterations';
     end
-    % case III: non-sparsity acquired due to too small lambdas
-    if zNorm == zNormFull && zNormNext == zNormFull
-        stopCase = 3;
-        stopMsg = 'Stop due to non-sparsity; return inv(S) as MLE(Omega)';
+    % case III/IV: non-sparsity acquired due to too small lambdas
+    if kIter > p && zNorm == zNormFull && zNormNext == zNormFull
+        % Warning: when underdetermined problems, S may not be p.d.
+        % The MLE of Omega is inv(S), which may not be p.d.
+        % However, the pMLE could give a p.d. estimation (full-matrix).
+        [~, flag] = chol(S);
+        if ~flag
+            stopCase = 3;  % return MLE
+            stopMsg = 'Stop due to non-sparsity; return inv(S) as MLE';
+        else
+            stopCase = 4;  % return pMLE for a p.d. estimation
+            stopMsg = 'Stop due to non-sparsity; return pMLE';
+        end
     end
     % debugging
     if debugFlag
@@ -380,7 +403,7 @@ while 1  % cycle in sequence over diagonal block:
     end
     % handle stopping cases
     switch stopCase
-      case {1, 2}
+      case {1, 2, 4}
         Omega = OmTemp;
         Sigma = SigTemp;
         switch evalType
@@ -413,8 +436,8 @@ while 1  % cycle in sequence over diagonal block:
 end
 
 % restore original shape of Omega and Sigma
-Omega = orderRestore(Omega, dLnext, posTracker);
-Sigma = orderRestore(Sigma, dLnext, posTracker);
+Omega = matrixRestore(Omega, dLnext, posTracker);
+Sigma = matrixRestore(Sigma, dLnext, posTracker);
 if isPermuted
     Omega = P' * Omega * P;
     Sigma = P' * Sigma * P;
@@ -492,7 +515,7 @@ function res = parseErrorType(errorType, default, name)
     end
 end % END of parseErrorType
 
-function matNew = orderRestore(mat, dL, posTracker)
+function matNew = matrixRestore(mat, dL, posTracker)
 % Retrieve the shape indicated by the original dL.
 
     d = sum(dL);
@@ -503,7 +526,7 @@ function matNew = orderRestore(mat, dL, posTracker)
     upleft = sum(dL(1:idx1-1));
     matNew = circshift(mat, [-upleft -upleft]);
 
-end % END of orderRestore
+end % END of matrixRestore
 
 % function [fval, zNorm] = evalLoss(Omega, S, lambda, dL)
 % % Evaluate the cost function.
@@ -521,7 +544,29 @@ end % END of orderRestore
 function fval = evalLoss(Omega, S, lambNorm)
 % Evaluate the cost function.
 
-    ldval = logdet(Omega, 'chol');
+    try
+        ldval = logdet(Omega, 'chol');
+    catch ME
+        switch ME.identifier
+          case 'User:NonPositiveDefinite'
+            warning(['The estimation of Omega is NOT positive definite. ' ...
+                     'The value of objective function is tried computing via det().'])
+            try
+                ldval = logdet(Omega, 'det');  % chol() failed for underdetermined prob
+            catch ME
+                switch ME.identifier
+                  case 'User:InfValueReturned'
+                    warning(['The det(Omega) return Inf.'])
+                    fval = -Inf;
+                    return
+                  otherwise
+                    rethrow(ME)
+                end
+            end
+          otherwise
+            rethrow(ME)
+        end
+    end
     fval = -ldval + trace(S * Omega) + lambNorm;
 
 end % END of evalObjFunc
@@ -543,13 +588,7 @@ function val = logdet(X, method)
         % It fails on matrices with minimal eigenvalue larger than 5e-4!
         [L, flag] = chol(X);
         if flag % chol on a non-positive definite matrix
-            msgwarn = sprintf(['An approximation of log(det(Omega)) is computed'...
-                               ', due to %d number of eigenvalues '...
-                               'that are particularly close to 0.'], ...
-                              size(X,1)-flag+1);
-            warning(msgwarn);
-
-            msgID = 'User:FunctionFailure';
+            msgID = 'User:NonPositiveDefinite';
             msgtext = 'evalLoss(): chol() fails due to non-positive definitiness';
             ME = MException(msgID,msgtext);
             throw(ME);
@@ -559,7 +598,7 @@ function val = logdet(X, method)
       case 'eig'
         eigvalX = eig(X);
         if any(eigvalX <= 0)
-            msgID = 'User:FunctionFailure';
+            msgID = 'User:NonPositiveDefinite';
             msgtext = 'evalLoss(): eig() gives non-positive eigenvalues';
             ME = MException(msgID,msgtext);
             throw(ME);
@@ -570,7 +609,7 @@ function val = logdet(X, method)
         % This method is not reliable when Omega is large, e.g. dim > 400.
         val = log(det(X));
         if isinf(val)  % det gives Inf value
-            msgID = 'User:FunctionFailure';
+            msgID = 'User:InfValueReturned';
             msgtext = 'evalLoss(): det() gives Inf values';
             ME = MException(msgID,msgtext);
             throw(ME);
@@ -578,6 +617,19 @@ function val = logdet(X, method)
     end
 
 end % END of logdet
+
+function flag = checkSPD(X)
+% Check if X is symmetric positive definite.
+
+    [~, flag] = chol(X);
+    if flag % chol on a non-positive definite matrix
+        msgID = 'User:NonPositiveDefinite';
+        msgtext = 'checkSPD(): the iterate fails to stay positive definite';
+        ME = MException(msgID,msgtext);
+        throw(ME);
+    end
+
+end % END of checkSPD
 
 function X = qpMatCG(M, W, tol)
 % Conjugate gradient method (matrix version) for the matrix quadratic

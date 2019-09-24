@@ -20,16 +20,16 @@ load('./data/Omega_Goran.mat');
 % Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
-N = 10 * d;
+N = round(.5 * d);
 X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 % setup
-lambda = 0.14;   % 0.15 ~ 0.3
-algName = 'goran';
-precision = [1e-3 10];
+lambda = 4;   % 0.15 ~ 0.3
+algName = 'zyue';
+precision = [1e-4 50];
 errorType = {'rel', 'var'};
 perm = [];
-% rng('shuffle'); perm = randperm(p);
+% rng('shuffle'); perm = randperm(length(dL));
 
 % estimation
 algTimer = tic;
