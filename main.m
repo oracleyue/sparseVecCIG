@@ -14,19 +14,19 @@ addpath('./goran');  % if using Goran's algorithm
 rng(2);
 
 % data
-load('./data/Omega_Goran.mat');
-% p = 6;
-% dL = randi(5, p, 1)*3;
-% Omega = sprandOm(dL, [.3 .8]);
+% load('./data/Omega_Goran.mat');
+p = 10;
+dL = randi(5, p, 1)*3;
+Omega = sprandOm(dL, [.3 .8]);
 Sigma = inv(Omega);
 d = sum(dL);
-N = round(.5 * d);
+N = round(10 * d);
 X = mvnrnd(zeros(N,d), Sigma);
 S = cov(X, 1);  % sample cov, normalized by N
 % setup
-lambda = 4;   % 0.15 ~ 0.3
+lambda = 0.2;   % 0.15 ~ 0.3
 algName = 'zyue';
-precision = [1e-4 50];
+precision = [1e-3 10];
 errorType = {'rel', 'var'};
 perm = [];
 % rng('shuffle'); perm = randperm(length(dL));

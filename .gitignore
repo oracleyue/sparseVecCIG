@@ -15,11 +15,12 @@ temp.m
 tmp.m
 
 *.mat
+*.zip
 
-Archived/
-Results/
-Articles/
-goran/
+archived/
+results/
+articles/
+Goran/
 formula.*
 auto/
 
