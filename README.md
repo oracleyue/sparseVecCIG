@@ -12,10 +12,10 @@ where S is the sample covariance matrix. The implemented algorithm is developed 
 
 Refer to our ICASSP 2020 for more details:
 
-*Zuogong Yue and Victor Solo (2020). A Fast Algorithm for Block-Wise
-Sparse Inverse Covariance Estimation. In 2020 IEEE International Conference
-on Acoustics, Speech and Signal Processing (ICASSP). IEEE, pp. (to be
-released online)*.
+*Zuogong Yue, Padmavathi Sundaram and Victor Solo (2020). A Fast Algorithm
+for Block-Wise Sparse Inverse Covariance Estimation. In 2020 IEEE
+International Conference on Acoustics, Speech and Signal Processing
+(ICASSP). IEEE, pp. (to be released online)*.
 
 ## List of functions and scripts
 
